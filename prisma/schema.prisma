@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model SelfMapEntry {
+  id        String   @id @default(cuid())
+  category  String   // interests | strengths | aversions | flow | network | other
+  question  String
+  answer    String
+  tags      String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ProblemCard {
+  id           String   @id @default(cuid())
+  title        String
+  who          String
+  when         String
+  why          String
+  painPoints   String
+  alternatives String
+  source       String   @default("manual")
+  sourceUrl    String   @default("")
+  tags         String   @default("")
+  stage        String   @default("")
+  category     String   @default("")
+  addedBy      String   @default("scout")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  fitEvaluations  FitEvaluation[]
+  validationPlans ValidationPlan[]
+}
+
+model FitEvaluation {
+  id            String   @id @default(cuid())
+  problemCardId String   @unique
+  attraction    Int
+  understanding Int
+  accessibility Int
+  motivation    Int
+  notes         String   @default("")
+  totalScore    Float    @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  problemCard ProblemCard @relation(fields: [problemCardId], references: [id], onDelete: Cascade)
+}
+
+model ValidationPlan {
+  id                 String   @id @default(cuid())
+  problemCardId      String
+  ideaDraft          String
+  interviewQuestions String
+  experimentMethod   String
+  successSignals     String
+  failureSignals     String
+  weeklySteps        String
+  status             String   @default("draft")
+  learnings          String   @default("")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  problemCard   ProblemCard    @relation(fields: [problemCardId], references: [id], onDelete: Cascade)
+  realityChecks RealityCheck[]
+}
+
+model RealityCheck {
+  id               String   @id @default(cuid())
+  validationPlanId String
+  coldInvestor     String
+  honestFriend     String
+  socraticQ        String
+  moderatorSummary String
+  inputContext     String
+  createdAt        DateTime @default(now())
+
+  validationPlan ValidationPlan @relation(fields: [validationPlanId], references: [id], onDelete: Cascade)
+}
+
+model AgentConversation {
+  id        String   @id @default(cuid())
+  agentType String
+  role      String
+  content   String
+  sessionId String
+  createdAt DateTime @default(now())
+}
