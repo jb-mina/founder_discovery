@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "founder-discovery",
+      "runtimeExecutable": "/opt/homebrew/Cellar/node@20/20.18.2/bin/npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    }
+  ]
+}

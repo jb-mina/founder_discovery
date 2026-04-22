@@ -83,10 +83,10 @@ export default async function DashboardPage() {
   ];
 
   const colorMap: Record<string, string> = {
-    violet: "text-violet-400 bg-violet-900/20 border-violet-800",
-    blue: "text-blue-400 bg-blue-900/20 border-blue-800",
-    amber: "text-amber-400 bg-amber-900/20 border-amber-800",
-    green: "text-green-400 bg-green-900/20 border-green-800",
+    violet: "text-violet-600 bg-violet-50 border-violet-200",
+    blue: "text-blue-600 bg-blue-50 border-blue-200",
+    amber: "text-amber-600 bg-amber-50 border-amber-200",
+    green: "text-green-600 bg-green-50 border-green-200",
   };
   const progressBarMap: Record<string, string> = {
     violet: "bg-violet-500",
@@ -98,18 +98,18 @@ export default async function DashboardPage() {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-xl font-semibold">Discovery OS</h1>
-        <p className="text-sm text-neutral-400 mt-1">나만의 문제와 고객을 찾는 루프</p>
+        <h1 className="text-xl font-semibold text-foreground">Discovery OS</h1>
+        <p className="text-sm text-muted mt-1">나만의 문제와 고객을 찾는 루프</p>
       </div>
 
       {stats.activeValidation && (
-        <Card className="border-green-800 bg-green-950/20">
+        <Card className="border-green-200 bg-green-50">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-green-400 mb-0.5">지금 진행 중인 검증</p>
-              <p className="font-medium text-sm">{stats.activeValidation.problemCard.title}</p>
+              <p className="text-xs text-green-700 mb-0.5">지금 진행 중인 검증</p>
+              <p className="font-medium text-sm text-foreground">{stats.activeValidation.problemCard.title}</p>
             </div>
-            <Link href="/validation" className="flex items-center gap-1 text-xs text-green-300 hover:text-green-200">
+            <Link href="/validation" className="flex items-center gap-1 text-xs text-green-700 hover:text-green-600">
               보기 <ArrowRight size={12} />
             </Link>
           </div>
@@ -119,23 +119,23 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {loops.map(({ href, icon: Icon, label, description, stat, progress, total, color, done }) => (
           <Link key={href} href={href}>
-            <Card className={`hover:border-neutral-600 transition-all cursor-pointer ${done ? "border-neutral-700" : ""}`}>
+            <Card className={`hover:border-border-strong hover:shadow-md transition-all cursor-pointer ${done ? "border-border-strong" : ""}`}>
               <div className="flex items-start justify-between mb-3">
                 <div className={`inline-flex items-center justify-center w-9 h-9 rounded-lg border ${colorMap[color]}`}>
                   <Icon size={16} />
                 </div>
-                {done && <CheckCircle2 size={16} className="text-green-400" />}
+                {done && <CheckCircle2 size={16} className="text-green-600" />}
               </div>
               <div className="mb-3">
-                <p className="font-medium text-sm">{label}</p>
-                <p className="text-xs text-neutral-500 mt-0.5">{description}</p>
+                <p className="font-medium text-sm text-foreground">{label}</p>
+                <p className="text-xs text-muted mt-0.5">{description}</p>
               </div>
               <div className="space-y-1.5">
                 <div className="flex justify-between text-xs">
-                  <span className="text-neutral-500">{stat}</span>
-                  <span className="text-neutral-500">{Math.min(progress, total)}/{total}</span>
+                  <span className="text-muted">{stat}</span>
+                  <span className="text-muted">{Math.min(progress, total)}/{total}</span>
                 </div>
-                <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+                <div className="h-2 bg-wash rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all ${progressBarMap[color]}`}
                     style={{ width: `${Math.min((progress / total) * 100, 100)}%` }}
@@ -149,33 +149,33 @@ export default async function DashboardPage() {
 
       {stats.topProblems.length > 0 && (
         <div>
-          <h2 className="text-sm font-medium text-neutral-300 mb-3">내 상위 문제 (Fit 순)</h2>
+          <h2 className="text-sm font-medium text-secondary mb-3">내 상위 문제 (Fit 순)</h2>
           <div className="space-y-2">
             {stats.topProblems.map((e, i) => (
-              <div key={e.id} className="flex items-center gap-3 bg-neutral-900 rounded-lg px-4 py-3 border border-neutral-800">
-                <span className="text-sm font-bold text-neutral-600 w-4">#{i + 1}</span>
+              <div key={e.id} className="flex items-center gap-3 bg-surface rounded-lg px-4 py-3 border border-border shadow-sm">
+                <span className="text-sm font-bold text-subtle w-4">#{i + 1}</span>
                 <div className="flex-1">
-                  <p className="text-sm font-medium">{e.problemCard.title}</p>
-                  <p className="text-xs text-neutral-500">{e.problemCard.who}</p>
+                  <p className="text-sm font-medium text-foreground">{e.problemCard.title}</p>
+                  <p className="text-xs text-muted">{e.problemCard.who}</p>
                 </div>
-                <span className="text-sm font-semibold text-amber-300">{e.totalScore.toFixed(1)}</span>
+                <span className="text-sm font-semibold text-amber-600">{e.totalScore.toFixed(1)}</span>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      <div className="border border-neutral-800 rounded-xl p-4">
-        <p className="text-xs text-neutral-500 font-medium uppercase tracking-wide mb-3">Discovery 루프</p>
+      <div className="border border-border rounded-xl p-4 bg-surface">
+        <p className="text-xs text-muted font-medium uppercase tracking-wide mb-3">Discovery 루프</p>
         <div className="flex items-center gap-2 flex-wrap">
           {loops.map(({ label, done, color }, i) => (
             <div key={label} className="flex items-center gap-2">
-              <span className={`text-xs font-medium ${done ? colorMap[color].split(" ")[0] : "text-neutral-600"}`}>{label}</span>
-              {i < loops.length - 1 && <ArrowRight size={12} className="text-neutral-700" />}
+              <span className={`text-xs font-medium ${done ? colorMap[color].split(" ")[0] : "text-subtle"}`}>{label}</span>
+              {i < loops.length - 1 && <ArrowRight size={12} className="text-subtle" />}
             </div>
           ))}
-          <ArrowRight size={12} className="text-neutral-700" />
-          <span className="text-xs text-neutral-600">반복</span>
+          <ArrowRight size={12} className="text-subtle" />
+          <span className="text-xs text-subtle">반복</span>
         </div>
       </div>
     </div>

@@ -49,23 +49,41 @@ ${selfMapText}
 
   const response = await client.messages.create({
     model: "claude-sonnet-4-6",
-    max_tokens: 2048,
+    max_tokens: 4096,
+    system: "당신은 Validation Designer입니다. 요청받은 JSON 형식으로만 응답하세요. 마크다운 코드블록(```)이나 다른 텍스트 없이 JSON 객체만 출력하세요.",
     messages: [{ role: "user", content: prompt }],
   });
 
-  const text = response.content[0].type === "text" ? response.content[0].text : "{}";
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  const planData = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
+  const rawText = response.content[0].type === "text" ? response.content[0].text : "{}";
+  const cleaned = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+
+  let planData: Record<string, unknown> = {};
+  try {
+    planData = JSON.parse(cleaned);
+  } catch {
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        planData = JSON.parse(jsonMatch[0]);
+      } catch (e2) {
+        console.error("[validation] JSON.parse fallback failed:", e2, "\nrawText:", rawText.slice(0, 500));
+        return NextResponse.json({ error: "JSON parse error", raw: rawText.slice(0, 500) }, { status: 500 });
+      }
+    } else {
+      console.error("[validation] No JSON found in response:\n", rawText.slice(0, 500));
+      return NextResponse.json({ error: "No JSON found", raw: rawText.slice(0, 500) }, { status: 500 });
+    }
+  }
 
   const plan = await prisma.validationPlan.create({
     data: {
       problemCardId,
-      ideaDraft: planData.ideaDraft ?? "",
-      interviewQuestions: JSON.stringify(planData.interviewQuestions ?? []),
-      experimentMethod: planData.experimentMethod ?? "",
-      successSignals: planData.successSignals ?? "",
-      failureSignals: planData.failureSignals ?? "",
-      weeklySteps: JSON.stringify(planData.weeklySteps ?? []),
+      ideaDraft: (planData.ideaDraft as string) ?? "",
+      interviewQuestions: JSON.stringify((planData.interviewQuestions as string[]) ?? []),
+      experimentMethod: (planData.experimentMethod as string) ?? "",
+      successSignals: (planData.successSignals as string) ?? "",
+      failureSignals: (planData.failureSignals as string) ?? "",
+      weeklySteps: JSON.stringify((planData.weeklySteps as object[]) ?? []),
     },
     include: { problemCard: true },
   });

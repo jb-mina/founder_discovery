@@ -6,6 +6,15 @@ export async function GET() {
   return NextResponse.json(entries);
 }
 
+export async function PATCH(req: NextRequest) {
+  const { id, category, question, answer, tags } = await req.json();
+  const updated = await prisma.selfMapEntry.update({
+    where: { id },
+    data: { category, question, answer, tags },
+  });
+  return NextResponse.json(updated);
+}
+
 export async function DELETE(req: NextRequest) {
   const { id } = await req.json();
   await prisma.selfMapEntry.delete({ where: { id } });

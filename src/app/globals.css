@@ -4,6 +4,25 @@
   --font-sans: var(--font-geist);
 }
 
+@theme {
+  /* Backgrounds */
+  --color-canvas: #f9fafb;        /* neutral-50: page bg + input bg */
+  --color-surface: #ffffff;        /* white: card / modal / panel */
+  --color-wash: #f3f4f6;          /* neutral-100: hover bg, tags, muted sections */
+
+  /* Text hierarchy */
+  --color-foreground: #111827;     /* neutral-900: headings, primary labels */
+  --color-body: #1f2937;           /* neutral-800: body / content text */
+  --color-secondary: #374151;      /* neutral-700: secondary text */
+  --color-tertiary: #4b5563;       /* neutral-600: body text, icons */
+  --color-muted: #6b7280;          /* neutral-500: captions, labels */
+  --color-subtle: #9ca3af;         /* neutral-400: placeholders, very muted */
+
+  /* Borders */
+  --color-border: #e5e7eb;         /* neutral-200: default */
+  --color-border-strong: #d1d5db;  /* neutral-300: hover / emphasis */
+}
+
 * {
   box-sizing: border-box;
 }

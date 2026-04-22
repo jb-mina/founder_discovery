@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
 
   const stream = client.messages.stream({
     model: "claude-sonnet-4-6",
-    max_tokens: 2048,
+    max_tokens: 4096,
     system: SYSTEM,
     messages: [{ role: "user", content: query || "최근 YC W2025, S2025 배치 중 Consumer와 Productivity 카테고리에서 흥미로운 문제 5개를 발굴해줘." }],
   });
