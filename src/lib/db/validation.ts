@@ -230,5 +230,89 @@ export function progressDots(p: ProblemValidationListItem | ProblemValidationVie
   return { confirmed, total: 4 };
 }
 
+export type ListStatusKey =
+  | "problem_validating"
+  | "no_active_solution"
+  | "solution_validating"
+  | "completed";
+
+export type ListStatus = {
+  key: ListStatusKey;
+  label: string;
+  variant: "default" | "violet" | "green" | "amber" | "red" | "blue";
+  nextStep: string;
+  shelvedCount: number;
+};
+
+// Derive the list-card badge state for a problem in validation.
+// Rules:
+//   - Any problem axis (existence / severity) not confirmed → "문제 검증 중"
+//   - Both problem axes confirmed but no active solution → "활성 솔루션 없음"
+//   - Active solution exists, fit/willingness not all confirmed → "솔루션 검증 중"
+//   - All four confirmed → "검증 완료"
+export function deriveListStatus(p: ProblemValidationListItem | ProblemValidationView): ListStatus {
+  const existence = p.hypotheses.find((h) => h.axis === "existence");
+  const severity = p.hypotheses.find((h) => h.axis === "severity");
+  const problemConfirmed =
+    existence?.status === "confirmed" && severity?.status === "confirmed";
+
+  const activeSolution = p.solutionHypotheses.find((s) => s.status === "active");
+  const shelvedCount = p.solutionHypotheses.filter((s) => s.status === "shelved").length;
+
+  if (!problemConfirmed) {
+    const nextStep =
+      !existence || existence.status !== "confirmed"
+        ? "다음: 문제 존재 여부 검증"
+        : "다음: 심각도 검증";
+    return { key: "problem_validating", label: "문제 검증 중", variant: "amber", nextStep, shelvedCount };
+  }
+
+  if (!activeSolution) {
+    return {
+      key: "no_active_solution",
+      label: "활성 솔루션 없음",
+      variant: "default",
+      nextStep: "다음: 솔루션 가설 등록",
+      shelvedCount,
+    };
+  }
+
+  const fit = activeSolution.hypotheses.find((h) => h.axis === "fit");
+  const willingness = activeSolution.hypotheses.find((h) => h.axis === "willingness");
+  const solutionConfirmed =
+    fit?.status === "confirmed" && willingness?.status === "confirmed";
+
+  if (solutionConfirmed) {
+    return {
+      key: "completed",
+      label: "검증 완료",
+      variant: "green",
+      nextStep: "4가설 모두 확인됨",
+      shelvedCount,
+    };
+  }
+
+  const nextStep =
+    !fit || fit.status !== "confirmed" ? "다음: 솔루션 핏 검증" : "다음: 지불 의사 검증";
+  return { key: "solution_validating", label: "솔루션 검증 중", variant: "violet", nextStep, shelvedCount };
+}
+
+// Per-axis status lookup for a stepper UI (existence → severity → fit → willingness).
+export function axisStatusFor(
+  p: ProblemValidationListItem | ProblemValidationView,
+): { axis: HypothesisAxis; status: string }[] {
+  const find = (axis: HypothesisAxis) => {
+    if (axis === "existence" || axis === "severity") {
+      return p.hypotheses.find((h) => h.axis === axis);
+    }
+    const active = p.solutionHypotheses.find((s) => s.status === "active");
+    return active?.hypotheses.find((h) => h.axis === axis);
+  };
+  return (["existence", "severity", "fit", "willingness"] as const).map((axis) => ({
+    axis,
+    status: find(axis)?.status ?? "not_started",
+  }));
+}
+
 export type { Hypothesis, RealityCheck, SolutionHypothesis };
 export { PROBLEM_AXES, SOLUTION_AXES, type HypothesisAxis };
