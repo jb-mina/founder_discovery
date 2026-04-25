@@ -26,7 +26,7 @@ export type AxisWorkspaceData = {
 const STATUS_OPTIONS: HypothesisStatus[] = ["not_started", "in_progress", "broken", "confirmed"];
 
 const STATUS_BUTTON_VARIANTS: Record<HypothesisStatus, string> = {
-  not_started: "border-border bg-canvas text-tertiary hover:bg-wash",
+  not_started: "border-violet-300 bg-violet-50 text-violet-700",
   in_progress: "border-amber-300 bg-amber-50 text-amber-700",
   broken: "border-red-300 bg-red-50 text-red-700",
   confirmed: "border-green-300 bg-green-50 text-green-700",
@@ -36,10 +36,12 @@ export function AxisWorkspace({
   hypothesis,
   onUpdated,
   loadingPlaceholder,
+  contextChip,
 }: {
   hypothesis: AxisWorkspaceData | null;
   onUpdated: () => void | Promise<void>;
   loadingPlaceholder?: string;
+  contextChip?: { label: string; value: string };
 }) {
   const [findings, setFindings] = useState("");
   const [status, setStatus] = useState<HypothesisStatus>("not_started");
@@ -92,6 +94,13 @@ export function AxisWorkspace({
 
   return (
     <Card className="space-y-5">
+      {contextChip && (
+        <div className="inline-flex items-start gap-1 rounded-md bg-violet-50 border border-violet-200 px-2 py-1 text-xs text-violet-700 max-w-full">
+          <span className="text-violet-500 shrink-0">{contextChip.label}</span>
+          <span className="font-medium line-clamp-1 min-w-0">{contextChip.value}</span>
+        </div>
+      )}
+
       {/* Header */}
       <div>
         <p className="text-xs text-muted">검증 가설</p>
@@ -101,7 +110,10 @@ export function AxisWorkspace({
 
       {/* Status */}
       <div>
-        <p className="text-xs text-muted mb-2">진행 상태</p>
+        <div className="flex items-baseline justify-between mb-2">
+          <p className="text-xs text-muted">진행 상태</p>
+          <p className="text-xs text-subtle">클릭해 변경</p>
+        </div>
         <div className="flex flex-wrap gap-1.5">
           {STATUS_OPTIONS.map((s) => (
             <button
