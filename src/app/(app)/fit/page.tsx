@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { AlertCircle, Sparkles, Loader2, Star, X, ExternalLink } from "lucide-react";
+import Link from "next/link";
+import { AlertCircle, Sparkles, Loader2, Star, X, ExternalLink, ArrowRight } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -346,6 +347,13 @@ export default function FitPage() {
                       ))}
                     </div>
                     {e.notes && <p className="text-xs text-muted mt-2">{e.notes}</p>}
+                    <Link
+                      href={`/validation/${card.id}`}
+                      onClick={(ev) => ev.stopPropagation()}
+                      className="mt-3 inline-flex items-center gap-1 text-xs text-violet-600 hover:text-violet-500 font-medium"
+                    >
+                      검증 시작 <ArrowRight size={12} />
+                    </Link>
                   </Card>
                 );
               })}

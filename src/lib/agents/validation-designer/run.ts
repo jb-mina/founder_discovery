@@ -1,6 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { ProblemCard, SelfMapEntry } from "@prisma/client";
-import { SYSTEM_PROMPT, buildUserMessage } from "./prompt";
+import {
+  SYSTEM_PROMPT,
+  buildProblemAxisMessage,
+  buildSolutionAxisMessage,
+} from "./prompt";
 import {
   validationDesignerOutputSchema,
   type ValidationDesignerOutput,
@@ -8,15 +12,12 @@ import {
 
 const client = new Anthropic();
 
-export async function runValidationDesigner(input: {
-  card: ProblemCard;
-  selfMap: SelfMapEntry[];
-}): Promise<ValidationDesignerOutput> {
+async function callDesigner(userMessage: string): Promise<ValidationDesignerOutput> {
   const response = await client.messages.create({
     model: "claude-sonnet-4-6",
-    max_tokens: 4096,
+    max_tokens: 2048,
     system: SYSTEM_PROMPT,
-    messages: [{ role: "user", content: buildUserMessage(input.card, input.selfMap) }],
+    messages: [{ role: "user", content: userMessage }],
   });
 
   const rawText = response.content[0].type === "text" ? response.content[0].text : "{}";
@@ -39,4 +40,30 @@ export async function runValidationDesigner(input: {
   }
 
   return validationDesignerOutputSchema.parse(parsed);
+}
+
+export async function designProblemAxes(
+  card: ProblemCard,
+  selfMap: SelfMapEntry[],
+): Promise<ValidationDesignerOutput> {
+  const result = await callDesigner(buildProblemAxisMessage(card, selfMap));
+  const axes = new Set(result.hypotheses.map((h) => h.axis));
+  if (!axes.has("existence") || !axes.has("severity")) {
+    throw new Error("Validation Designer: problem axes must include both existence and severity");
+  }
+  return result;
+}
+
+export async function designSolutionAxes(input: {
+  card: ProblemCard;
+  selfMap: SelfMapEntry[];
+  solutionStatement: string;
+  problemFindings?: string;
+}): Promise<ValidationDesignerOutput> {
+  const result = await callDesigner(buildSolutionAxisMessage(input));
+  const axes = new Set(result.hypotheses.map((h) => h.axis));
+  if (!axes.has("fit") || !axes.has("willingness")) {
+    throw new Error("Validation Designer: solution axes must include both fit and willingness");
+  }
+  return result;
 }

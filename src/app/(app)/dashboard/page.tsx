@@ -6,11 +6,18 @@ import { Brain, Crosshair, AlertCircle, ClipboardList, ArrowRight, CheckCircle2 
 import { Card } from "@/components/ui/card";
 
 async function getStats() {
-  const [selfMapCount, problemCount, fitCount, validationCount] = await Promise.all([
+  const [selfMapCount, problemCount, fitCount, problemsInValidation] = await Promise.all([
     prisma.selfMapEntry.count(),
     prisma.problemCard.count(),
     prisma.fitEvaluation.count(),
-    prisma.validationPlan.count(),
+    prisma.problemCard.count({
+      where: {
+        OR: [
+          { hypotheses: { some: {} } },
+          { solutionHypotheses: { some: {} } },
+        ],
+      },
+    }),
   ]);
 
   const topProblems = await prisma.fitEvaluation.findMany({
@@ -19,12 +26,21 @@ async function getStats() {
     take: 3,
   });
 
-  const activeValidation = await prisma.validationPlan.findFirst({
+  // "지금 진행 중인 검증" — 가장 최근에 업데이트된 active SolutionHypothesis 한 건
+  const activeSolution = await prisma.solutionHypothesis.findFirst({
     where: { status: "active" },
     include: { problemCard: true },
+    orderBy: { updatedAt: "desc" },
   });
 
-  return { selfMapCount, problemCount, fitCount, validationCount, topProblems, activeValidation };
+  return {
+    selfMapCount,
+    problemCount,
+    fitCount,
+    validationCount: problemsInValidation,
+    topProblems,
+    activeSolution,
+  };
 }
 
 export default async function DashboardPage() {
@@ -73,8 +89,8 @@ export default async function DashboardPage() {
       href: "/validation",
       icon: ClipboardList,
       label: "Validation Backlog",
-      description: "검증 실행하기",
-      stat: `${stats.validationCount}개 플랜`,
+      description: "4가설 검증 실행하기",
+      stat: `${stats.validationCount}개 검증 진행`,
       progress: stats.validationCount,
       total: 1,
       color: "green",
@@ -102,14 +118,18 @@ export default async function DashboardPage() {
         <p className="text-sm text-muted mt-1">나만의 문제와 고객을 찾는 루프</p>
       </div>
 
-      {stats.activeValidation && (
+      {stats.activeSolution && (
         <Card className="border-green-200 bg-green-50">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-green-700 mb-0.5">지금 진행 중인 검증</p>
-              <p className="font-medium text-sm text-foreground">{stats.activeValidation.problemCard.title}</p>
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs text-green-700 mb-0.5">지금 검증 중인 솔루션</p>
+              <p className="font-medium text-sm text-foreground truncate">{stats.activeSolution.problemCard.title}</p>
+              <p className="text-xs text-muted truncate">{stats.activeSolution.statement}</p>
             </div>
-            <Link href="/validation" className="flex items-center gap-1 text-xs text-green-700 hover:text-green-600">
+            <Link
+              href={`/validation/${stats.activeSolution.problemCardId}`}
+              className="flex items-center gap-1 text-xs text-green-700 hover:text-green-600 shrink-0"
+            >
               보기 <ArrowRight size={12} />
             </Link>
           </div>
