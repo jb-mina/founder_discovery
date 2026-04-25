@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { updateHypothesis } from "@/lib/db/validation";
+import { recomputeSolutionStatus, updateHypothesis } from "@/lib/db/validation";
 import { VALIDATION_METHODS } from "@/lib/agents/validation-designer/schema";
 
 const patchSchema = z.object({
@@ -19,5 +19,12 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid body", details: parsed.error.flatten() }, { status: 400 });
   }
   const updated = await updateHypothesis(id, parsed.data);
+
+  // Cascade: if this hypothesis attaches to a SolutionHypothesis, recompute
+  // its status from sibling hypothesis statuses (broken / confirmed / etc.).
+  if (updated.solutionHypothesisId) {
+    await recomputeSolutionStatus(updated.solutionHypothesisId);
+  }
+
   return NextResponse.json(updated);
 }

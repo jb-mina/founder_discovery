@@ -70,14 +70,17 @@ export function ProblemHeader({
         </div>
 
         <div className="space-y-1">
-          <p className="text-sm text-tertiary">
+          <p className="text-sm text-tertiary line-clamp-1">
             <span className="text-subtle">타깃 고객 ·</span> {problem.who}
           </p>
           {problem.why && (
-            <p className="text-xs text-muted line-clamp-2">
+            <p className="text-xs text-muted line-clamp-1">
               <span className="text-subtle">왜 ·</span> {problem.why}
             </p>
           )}
+          <p className="text-xs text-subtle pt-0.5">
+            전체 내용은 ⓘ 클릭으로 확인
+          </p>
         </div>
       </div>
 

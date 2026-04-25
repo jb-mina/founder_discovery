@@ -187,6 +187,40 @@ export async function updateSolutionHypothesisStatus(
   return prisma.solutionHypothesis.update({ where: { id }, data: { status } });
 }
 
+// Recompute the parent SolutionHypothesis status from its child Hypothesis
+// statuses. Rules: any broken → broken; otherwise both confirmed → confirmed;
+// otherwise preserve user-controlled shelved; else active.
+//
+// Called after a child Hypothesis status changes so the solution-level state
+// matches reality without the user having to set it manually.
+export async function recomputeSolutionStatus(
+  solutionHypothesisId: string,
+): Promise<SolutionHypothesis | null> {
+  const solution = await prisma.solutionHypothesis.findUnique({
+    where: { id: solutionHypothesisId },
+    include: { hypotheses: true },
+  });
+  if (!solution) return null;
+
+  const anyBroken = solution.hypotheses.some((h) => h.status === "broken");
+  const allConfirmed =
+    solution.hypotheses.length === 2 &&
+    solution.hypotheses.every((h) => h.status === "confirmed");
+
+  let nextStatus: string;
+  if (anyBroken) nextStatus = "broken";
+  else if (allConfirmed) nextStatus = "confirmed";
+  else if (solution.status === "shelved") nextStatus = "shelved";
+  else nextStatus = "active";
+
+  if (nextStatus === solution.status) return solution;
+
+  return prisma.solutionHypothesis.update({
+    where: { id: solutionHypothesisId },
+    data: { status: nextStatus },
+  });
+}
+
 export async function listExistingSolutionStatements(
   problemCardId: string,
 ): Promise<string[]> {
