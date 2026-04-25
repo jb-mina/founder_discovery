@@ -6,7 +6,7 @@ const nav = [
   { href: "/self-map", label: "Self Map", short: "Self", icon: Brain },
   { href: "/problems", label: "Problem Universe", short: "문제", icon: Crosshair },
   { href: "/fit", label: "Founder-Problem Fit", short: "Fit", icon: AlertCircle },
-  { href: "/validation", label: "Validation Backlog", short: "검증", icon: ClipboardList },
+  { href: "/validation", label: "Validating", short: "검증", icon: ClipboardList },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {

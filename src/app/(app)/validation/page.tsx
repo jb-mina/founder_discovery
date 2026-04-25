@@ -69,7 +69,7 @@ export default async function ValidationListPage() {
     <div className="p-4 md:p-6 space-y-6">
       <div className="flex items-center gap-2">
         <ClipboardList size={20} className="text-violet-600" />
-        <h1 className="text-lg font-semibold text-foreground">Validation Backlog</h1>
+        <h1 className="text-lg font-semibold text-foreground">Validating</h1>
       </div>
       <p className="text-sm text-muted -mt-3">
         검증 진행 중인 문제 카드. 카드 클릭 시 해당 문제의 4가설 허브로 이동합니다.

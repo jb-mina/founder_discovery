@@ -88,7 +88,7 @@ export default async function DashboardPage() {
     {
       href: "/validation",
       icon: ClipboardList,
-      label: "Validation Backlog",
+      label: "Validating",
       description: "4가설 검증 실행하기",
       stat: `${stats.validationCount}개 검증 진행`,
       progress: stats.validationCount,
