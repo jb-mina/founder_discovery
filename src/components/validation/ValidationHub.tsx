@@ -1,19 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import {
-  Loader2,
-  Zap,
-  AlertTriangle,
-  HelpCircle,
-  Scale,
-  ArrowUp,
-} from "lucide-react";
+import { Loader2, ArrowUp } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { ProblemHeader } from "@/components/validation/ProblemHeader";
 import { MainTabs, type TabKey } from "@/components/validation/MainTabs";
 import { AxisWorkspace, type AxisWorkspaceData } from "@/components/validation/AxisWorkspace";
 import { SolutionPanel, type SolutionPanelData } from "@/components/validation/SolutionPanel";
+import { SolutionValidationBlock } from "@/components/validation/SolutionValidationBlock";
 
 type ApiHypothesis = AxisWorkspaceData & {
   problemCardId: string | null;
@@ -56,7 +50,6 @@ export function ValidationHub({ problemCardId }: { problemCardId: string }) {
   const [bootstrapping, setBootstrapping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<TabKey>("problem");
-  const [realityChecking, setRealityChecking] = useState(false);
 
   const fetchView = useCallback(async () => {
     const res = await fetch(`/api/validation/${problemCardId}`);
@@ -106,16 +99,9 @@ export function ValidationHub({ problemCardId }: { problemCardId: string }) {
   const problemConfirmed =
     Number(existence?.status === "confirmed") + Number(severity?.status === "confirmed");
 
-  const activeSolution = view.solutionHypotheses.find((s) => s.status === "active") ?? null;
-  const activeFit = activeSolution?.hypotheses.find((h) => h.axis === "fit") ?? null;
-  const activeWillingness = activeSolution?.hypotheses.find((h) => h.axis === "willingness") ?? null;
-  const solutionConfirmed = activeSolution
-    ? Number(activeFit?.status === "confirmed") + Number(activeWillingness?.status === "confirmed")
-    : 0;
-
-  const totalConfirmed = problemConfirmed + solutionConfirmed;
+  const activeSolutions = view.solutionHypotheses.filter((s) => s.status === "active");
   const recommended: TabKey | null =
-    problemConfirmed < 2 ? "problem" : solutionConfirmed < 2 ? "solution" : null;
+    problemConfirmed < 2 ? "problem" : activeSolutions.length === 0 ? "solution" : null;
 
   const solutionPanelData: SolutionPanelData[] = view.solutionHypotheses.map((s) => ({
     id: s.id,
@@ -137,7 +123,7 @@ export function ValidationHub({ problemCardId }: { problemCardId: string }) {
           painPoints: view.painPoints,
           alternatives: view.alternatives,
         }}
-        progressDots={{ confirmed: totalConfirmed, total: 4 }}
+        progressDots={{ confirmed: problemConfirmed, total: 2 }}
       />
 
       <div className="px-4 md:px-6 pt-3">
@@ -146,8 +132,7 @@ export function ValidationHub({ problemCardId }: { problemCardId: string }) {
           onChange={setTab}
           problemConfirmed={problemConfirmed}
           problemTotal={2}
-          solutionConfirmed={solutionConfirmed}
-          solutionTotal={activeSolution ? 2 : 0}
+          activeSolutionCount={activeSolutions.length}
           recommended={recommended}
         />
       </div>
@@ -166,23 +151,9 @@ export function ValidationHub({ problemCardId }: { problemCardId: string }) {
           <SolutionTab
             problemCardId={problemCardId}
             solutionPanel={solutionPanelData}
-            activeSolution={activeSolution}
-            activeFit={activeFit}
-            activeWillingness={activeWillingness}
-            realityChecking={realityChecking}
+            activeSolutions={activeSolutions}
             onChanged={async () => {
               await fetchView();
-            }}
-            onRunRealityCheck={async () => {
-              if (!activeSolution) return;
-              setRealityChecking(true);
-              await fetch("/api/reality-check", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ solutionHypothesisId: activeSolution.id }),
-              });
-              await fetchView();
-              setRealityChecking(false);
             }}
             onJumpToProblem={() => setTab("problem")}
           />
@@ -218,32 +189,22 @@ function ProblemTab({
 function SolutionTab({
   problemCardId,
   solutionPanel,
-  activeSolution,
-  activeFit,
-  activeWillingness,
-  realityChecking,
+  activeSolutions,
   onChanged,
-  onRunRealityCheck,
   onJumpToProblem,
 }: {
   problemCardId: string;
   solutionPanel: SolutionPanelData[];
-  activeSolution: ApiSolution | null;
-  activeFit: ApiHypothesis | null;
-  activeWillingness: ApiHypothesis | null;
-  realityChecking: boolean;
+  activeSolutions: ApiSolution[];
   onChanged: () => Promise<void>;
-  onRunRealityCheck: () => Promise<void>;
   onJumpToProblem: () => void;
 }) {
-  const latestRC = activeSolution?.realityChecks[0] ?? null;
-
   return (
     <div className="space-y-6">
       <section>
         <div className="mb-2">
           <h2 className="text-sm font-semibold text-foreground">솔루션 가설</h2>
-          <p className="text-xs text-muted">솔루션 단위 · iteration 가능</p>
+          <p className="text-xs text-muted">솔루션 단위 · 여러 가설을 병렬로 활성화해 비교 가능</p>
         </div>
         <SolutionPanel
           problemCardId={problemCardId}
@@ -252,57 +213,30 @@ function SolutionTab({
         />
       </section>
 
-      {activeSolution ? (
-        <>
-          <section className="space-y-4">
-            <div>
-              <h2 className="text-sm font-semibold text-foreground">활성 솔루션 검증</h2>
-              <p className="text-xs text-muted">
-                현재 활성 솔루션에 대한 핏·지불 의사 가설. 둘 다 confirmed면 솔루션 검증 완료, 하나라도 broken되면 솔루션이 자동으로 깨짐 처리됩니다.
-              </p>
-            </div>
-            <AxisWorkspace
-              hypothesis={activeFit}
-              onUpdated={onChanged}
-              loadingPlaceholder="처방 생성 중..."
-              contextChip={{ label: "활성 솔루션", value: activeSolution.statement }}
+      {activeSolutions.length > 0 ? (
+        <section className="space-y-5">
+          <div>
+            <h2 className="text-sm font-semibold text-foreground">활성 솔루션 검증 ({activeSolutions.length})</h2>
+            <p className="text-xs text-muted">
+              각 활성 솔루션의 핏·지불 의사 가설과 Reality Check. 둘 다 confirmed면 그 솔루션이 자동 confirmed, 하나라도 broken되면 자동 깨짐 처리됩니다.
+            </p>
+          </div>
+          {activeSolutions.map((s) => (
+            <SolutionValidationBlock
+              key={s.id}
+              solution={{
+                id: s.id,
+                statement: s.statement,
+                source: s.source,
+                status: s.status,
+                fit: s.hypotheses.find((h) => h.axis === "fit") ?? null,
+                willingness: s.hypotheses.find((h) => h.axis === "willingness") ?? null,
+                realityCheck: s.realityChecks[0] ?? null,
+              }}
+              onChanged={onChanged}
             />
-            <AxisWorkspace
-              hypothesis={activeWillingness}
-              onUpdated={onChanged}
-              loadingPlaceholder="처방 생성 중..."
-              contextChip={{ label: "활성 솔루션", value: activeSolution.statement }}
-            />
-          </section>
-
-          <section>
-            <div className="flex items-start justify-between gap-3 mb-3">
-              <div className="min-w-0">
-                <h2 className="text-sm font-semibold text-foreground">Reality Check</h2>
-                <p className="text-xs text-muted line-clamp-1">
-                  활성 솔루션 — {activeSolution.statement}
-                </p>
-              </div>
-              <button
-                onClick={onRunRealityCheck}
-                disabled={realityChecking}
-                className="flex items-center gap-1.5 text-xs rounded-lg border border-border bg-canvas hover:bg-wash px-2.5 py-1.5 text-tertiary disabled:opacity-40 shrink-0"
-              >
-                {realityChecking ? (
-                  <Loader2 size={12} className="animate-spin" />
-                ) : (
-                  <Zap size={12} />
-                )}
-                실행
-              </button>
-            </div>
-            {latestRC ? (
-              <RealityCheckPanel rc={latestRC} />
-            ) : (
-              <p className="text-xs text-subtle">아직 실행된 Reality Check이 없습니다.</p>
-            )}
-          </section>
-        </>
+          ))}
+        </section>
       ) : (
         <Card className="text-center py-6">
           <p className="text-sm text-tertiary">
@@ -316,35 +250,6 @@ function SolutionTab({
           </button>
         </Card>
       )}
-    </div>
-  );
-}
-
-function RealityCheckPanel({ rc }: { rc: ApiRealityCheck }) {
-  return (
-    <div className="border border-border rounded-xl p-4 space-y-3 bg-canvas">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        {[
-          { icon: Zap, label: "냉정한 투자자", content: rc.coldInvestor, color: "text-red-600" },
-          { icon: AlertTriangle, label: "솔직한 친구", content: rc.honestFriend, color: "text-amber-600" },
-          { icon: HelpCircle, label: "소크라테스", content: rc.socraticQ, color: "text-blue-600" },
-        ].map(({ icon: Icon, label, content, color }) => (
-          <div key={label} className="bg-surface border border-border rounded-lg p-3">
-            <div className={`flex items-center gap-1 mb-2 ${color}`}>
-              <Icon size={12} />
-              <p className="text-xs font-medium">{label}</p>
-            </div>
-            <p className="text-xs text-secondary whitespace-pre-wrap">{content}</p>
-          </div>
-        ))}
-      </div>
-      <div className="bg-violet-50 border border-violet-200 rounded-lg p-3">
-        <div className="flex items-center gap-1 mb-1 text-violet-600">
-          <Scale size={12} />
-          <p className="text-xs font-medium">중재자 종합</p>
-        </div>
-        <p className="text-sm text-body whitespace-pre-wrap">{rc.moderatorSummary}</p>
-      </div>
     </div>
   );
 }

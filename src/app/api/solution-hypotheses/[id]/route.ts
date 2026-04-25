@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
 import { updateSolutionHypothesisStatus } from "@/lib/db/validation";
 
 const patchSchema = z.object({
@@ -16,27 +15,10 @@ export async function PATCH(
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid body" }, { status: 400 });
   }
-  const { status } = parsed.data;
-
-  // Single-active invariant — when activating a solution, demote any sibling
-  // active solutions for the same problem to shelved.
-  if (status === "active") {
-    const target = await prisma.solutionHypothesis.findUnique({
-      where: { id },
-      select: { problemCardId: true },
-    });
-    if (target) {
-      await prisma.solutionHypothesis.updateMany({
-        where: {
-          problemCardId: target.problemCardId,
-          status: "active",
-          NOT: { id },
-        },
-        data: { status: "shelved" },
-      });
-    }
-  }
-
-  const updated = await updateSolutionHypothesisStatus(id, status);
+  // Multiple solutions may be active in parallel — the user wants to compare
+  // prescribed methods and Reality Check across candidates before deciding
+  // which to actually pursue. Demoting siblings here would force a one-at-a-
+  // time flow that doesn't match the exploration step.
+  const updated = await updateSolutionHypothesisStatus(id, parsed.data.status);
   return NextResponse.json(updated);
 }
