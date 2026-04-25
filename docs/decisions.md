@@ -141,3 +141,11 @@
 **버리는 것**: "지금 추구하는 단 하나" 집중 모델의 단순성. 대신 활성 솔루션 N개의 검증 블록이 페이지 길이를 늘리는 비용을 수용.
 
 ---
+
+## PostHog 도입 — 메타데이터 전용 + 쿠키 영속화
+**날짜**: 2026-04-25
+**결정**: PostHog US Cloud 채택. `persistence: 'cookie'`, `disable_session_recording: true`, `autocapture: false`, distinct_id = `u_` + SHA-256(`auth` 쿠키) 또는 anonymous. 이벤트는 `lib/posthog/events.ts` 타입 안전 카탈로그를 통해서만 전송(자유 `posthog.capture()` 금지).
+**이유**: 원문(SelfMap·ProblemCard·Hypothesis statement·Reality Check) 유출 방지를 type-level로 강제하려면 autocapture opt-out 모델이 부적합. 쿠키 한정 영속화는 CLAUDE.md `localStorage` 금지 규칙과 정합. 해시 distinct_id는 멀티 디바이스 클러스터링과 invite 코드 기밀성을 동시에 만족.
+**버리는 것**: autocapture 클릭 히트맵, 세션 리코딩의 디버깅 가치. 서버 이벤트(`posthog-node`)와 리버스 프록시는 후속.
+
+---

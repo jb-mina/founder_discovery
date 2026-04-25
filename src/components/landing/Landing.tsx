@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { EmailSignupForm } from "./EmailSignupForm";
+import { LandingTracker } from "./LandingTracker";
 
 export function Landing() {
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white">
+      <LandingTracker />
       {/* Top bar */}
       <header className="px-6 py-5 flex items-center justify-between max-w-6xl mx-auto">
         <div className="flex items-center gap-2">
@@ -12,6 +14,7 @@ export function Landing() {
         </div>
         <Link
           href="#email-top"
+          data-track-cta="header"
           className="text-xs text-white/60 hover:text-white border border-white/15 rounded-full px-3 py-1.5"
         >
           초대장 받기
@@ -19,7 +22,10 @@ export function Landing() {
       </header>
 
       {/* Hero */}
-      <section className="px-6 py-12 md:py-20 max-w-3xl mx-auto text-center">
+      <section
+        data-track-section="hero"
+        className="px-6 py-12 md:py-20 max-w-3xl mx-auto text-center"
+      >
         <p className="text-xs text-violet-400/80 mb-5 tracking-widest">비공개 베타 · 초대장 신청 중</p>
         <h1 className="text-3xl md:text-5xl font-bold leading-[1.2] mb-6">
           &ldquo;무엇을 만들지&rdquo;
@@ -32,7 +38,7 @@ export function Landing() {
         <p className="text-sm md:text-base text-white/70 mb-10">
           1인 창업자를 위한 비즈니스 0to1 운영체제.
         </p>
-        <EmailSignupForm id="email-top" />
+        <EmailSignupForm id="email-top" location="top" />
         <p className="mt-4 text-xs text-white/40">
           초기 베타 슬롯은 한정되어 있어요. 스팸은 보내지 않아요.
         </p>
@@ -46,7 +52,10 @@ export function Landing() {
       </section>
 
       {/* Two traps */}
-      <section className="px-6 py-16 max-w-5xl mx-auto">
+      <section
+        data-track-section="traps"
+        className="px-6 py-16 max-w-5xl mx-auto"
+      >
         <p className="text-center text-xs text-violet-400 font-semibold tracking-widest mb-2">
           왜 이게 어려운가
         </p>
@@ -77,7 +86,10 @@ export function Landing() {
       </section>
 
       {/* 4-stage cycle */}
-      <section className="px-6 py-16 max-w-5xl mx-auto">
+      <section
+        data-track-section="cycle"
+        className="px-6 py-16 max-w-5xl mx-auto"
+      >
         <p className="text-center text-xs text-violet-400 font-semibold tracking-widest mb-2">
           Core Mechanism
         </p>
@@ -122,7 +134,10 @@ export function Landing() {
       </section>
 
       {/* Agent roles */}
-      <section className="px-6 py-16 max-w-5xl mx-auto">
+      <section
+        data-track-section="agents"
+        className="px-6 py-16 max-w-5xl mx-auto"
+      >
         <p className="text-center text-xs text-violet-400 font-semibold tracking-widest mb-2">
           04 — Agent Roles
         </p>
@@ -200,7 +215,10 @@ export function Landing() {
       </section>
 
       {/* Real Moat */}
-      <section className="px-6 py-16 max-w-3xl mx-auto">
+      <section
+        data-track-section="moat"
+        className="px-6 py-16 max-w-3xl mx-auto"
+      >
         <div className="rounded-2xl border border-violet-500/20 bg-gradient-to-br from-violet-500/10 to-violet-700/5 p-8 md:p-10">
           <p className="text-xs font-semibold tracking-widest text-violet-400 mb-4">REAL MOAT</p>
           <h2 className="text-xl md:text-2xl font-bold mb-4 leading-tight">
@@ -242,7 +260,10 @@ export function Landing() {
       </section>
 
       {/* Final CTA */}
-      <section className="px-6 py-20 max-w-3xl mx-auto text-center">
+      <section
+        data-track-section="final_cta"
+        className="px-6 py-20 max-w-3xl mx-auto text-center"
+      >
         <p className="text-violet-400 text-2xl mb-3">◐</p>
         <h2 className="text-2xl md:text-3xl font-bold mb-3 leading-tight">
           꼭 맞는 문제와 고객을 찾고,
@@ -255,7 +276,7 @@ export function Landing() {
         <p className="text-sm text-white/60 mb-8">
           첫 시즌 비공개 베타에 함께할 창업자를 모십니다.
         </p>
-        <EmailSignupForm id="email-bottom" />
+        <EmailSignupForm id="email-bottom" location="bottom" />
         <p className="mt-4 text-xs text-white/40">
           초기 베타 슬롯은 한정되어 있어요. 스팸은 보내지 않아요.
         </p>

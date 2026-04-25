@@ -1,35 +1,79 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
+import { track } from "@/lib/posthog/events";
 
-export function EmailSignupForm({ id }: { id?: string }) {
+type Location = "top" | "bottom";
+
+type SubmitErrorKind = "validation" | "rate_limit" | "network" | "other";
+
+function classifyHttpStatus(status: number): SubmitErrorKind {
+  if (status === 429) return "rate_limit";
+  if (status >= 400 && status < 500) return "validation";
+  return "other";
+}
+
+export function EmailSignupForm({
+  id,
+  location,
+}: {
+  id?: string;
+  location: Location;
+}) {
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const focusedOnce = useRef(false);
+
+  function onFocus() {
+    if (focusedOnce.current) return;
+    focusedOnce.current = true;
+    track({ event: "landing_email_focused", props: { location } });
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!email.trim()) return;
     setSubmitting(true);
     setError(null);
+    let res: Response;
     try {
-      const res = await fetch("/api/invite-request", {
+      res = await fetch("/api/invite-request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim() }),
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? "제출 실패");
-      }
-      setDone(true);
     } catch (err) {
+      track({
+        event: "landing_email_submitted",
+        props: { location, status: "error", error_kind: "network" },
+      });
       setError(err instanceof Error ? err.message : String(err));
-    } finally {
       setSubmitting(false);
+      return;
     }
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      track({
+        event: "landing_email_submitted",
+        props: {
+          location,
+          status: "error",
+          error_kind: classifyHttpStatus(res.status),
+        },
+      });
+      setError(body.error ?? "제출 실패");
+      setSubmitting(false);
+      return;
+    }
+    track({
+      event: "landing_email_submitted",
+      props: { location, status: "ok" },
+    });
+    setDone(true);
+    setSubmitting(false);
   }
 
   if (done) {
@@ -55,6 +99,7 @@ export function EmailSignupForm({ id }: { id?: string }) {
         type="email"
         required
         value={email}
+        onFocus={onFocus}
         onChange={(e) => {
           setEmail(e.target.value);
           if (error) setError(null);

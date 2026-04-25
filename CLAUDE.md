@@ -127,6 +127,7 @@
 - **에이전트에 책임 두 개 이상 주입 금지.** Validation Designer가 솔루션 가설 생성 + 검증 처방을 동시에 했을 때 솔루션이 사이드 아웃풋으로 약하게 다뤄지는 함정 발생 → Solution Suggester로 책임 분리해 해결. **에이전트가 약하게 작동한다면 책임 분리부터 의심한다.**
 - **`Hypothesis`의 두 부모 FK(`problemCardId` / `solutionHypothesisId`) 중 정확히 하나만 set.** 양쪽 다 set 또는 양쪽 다 null이면 invalid. zod로 검증 + 부모별 `(parentId, axis)` unique 제약으로 enforce.
 - **`SolutionHypothesis.status`의 `broken` / `confirmed`는 자식 가설에서 자동 도출.** UI에서 그 두 상태로 가는 직접 토글 버튼 노출 금지. 사용자가 능동 결정하는 건 `active` / `shelved`뿐 (`recomputeSolutionStatus` cascade 참조).
+- **PostHog `posthog.capture()` 직접 호출 금지.** `lib/posthog/events.ts`의 `track()` 헬퍼만 사용. 새 이벤트는 `AnalyticsEvent` discriminated union에 먼저 등록(메타데이터·enum·bucket만 허용, 자유 텍스트 필드 금지).
 
 ---
 
