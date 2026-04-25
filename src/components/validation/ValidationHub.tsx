@@ -265,28 +265,35 @@ function SolutionTab({
               hypothesis={activeFit}
               onUpdated={onChanged}
               loadingPlaceholder="처방 생성 중..."
+              contextChip={{ label: "활성 솔루션", value: activeSolution.statement }}
             />
             <AxisWorkspace
               hypothesis={activeWillingness}
               onUpdated={onChanged}
               loadingPlaceholder="처방 생성 중..."
+              contextChip={{ label: "활성 솔루션", value: activeSolution.statement }}
             />
           </section>
 
           <section>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold text-foreground">Reality Check</h2>
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold text-foreground">Reality Check</h2>
+                <p className="text-xs text-muted line-clamp-1">
+                  활성 솔루션 — {activeSolution.statement}
+                </p>
+              </div>
               <button
                 onClick={onRunRealityCheck}
                 disabled={realityChecking}
-                className="flex items-center gap-1.5 text-xs rounded-lg border border-border bg-canvas hover:bg-wash px-2.5 py-1.5 text-tertiary disabled:opacity-40"
+                className="flex items-center gap-1.5 text-xs rounded-lg border border-border bg-canvas hover:bg-wash px-2.5 py-1.5 text-tertiary disabled:opacity-40 shrink-0"
               >
                 {realityChecking ? (
                   <Loader2 size={12} className="animate-spin" />
                 ) : (
                   <Zap size={12} />
                 )}
-                활성 솔루션에 대해 실행
+                실행
               </button>
             </div>
             {latestRC ? (
