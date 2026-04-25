@@ -133,3 +133,11 @@
 **버리는 것**: 마이그레이션 적용 시점을 사람이 명시 결정할 수 있는 통제력. 자동화로 약간의 통제력을 빌드 일관성과 교환.
 
 ---
+
+## 활성 솔루션 동시 다수 허용 — single-active invariant 폐기
+**날짜**: 2026-04-25
+**결정**: 한 ProblemCard 아래 여러 SolutionHypothesis가 동시에 `status='active'`일 수 있도록 허용. UI는 활성 솔루션마다 별도 검증 블록(fit + willingness 워크스페이스 + Reality Check)을 vertical stack으로 노출. PATCH `/api/solution-hypotheses/:id`에서 다른 sibling을 자동 demote하던 single-active invariant(직전 결정)는 폐기.
+**이유**: 솔루션 탐색 단계에서 사용자는 검증 메서드·시그널·Reality Check를 **여러 후보에 대해 비교한 뒤 어느 솔루션에 시간·비용을 쓸지** 결정한다. 한 번에 하나만 활성이면 두 번째 솔루션의 처방을 보려고 첫 번째를 일부러 보류해야 하는 부자연스러운 UX 발생. 실 사용 후 Mina님 직관 — "병렬 비교가 자연스러운 흐름" — 검증됨.
+**버리는 것**: "지금 추구하는 단 하나" 집중 모델의 단순성. 대신 활성 솔루션 N개의 검증 블록이 페이지 길이를 늘리는 비용을 수용.
+
+---
