@@ -113,3 +113,22 @@ model AgentConversation {
   sessionId String
   createdAt DateTime @default(now())
 }
+
+// Closed alpha invite gate. A visitor submits their email on the landing page,
+// Mina reviews in /admin/invites and approves (which mints a 10-char code and
+// emails it). The code lets the holder log in until Mina revokes it; revoked
+// codes are kept for audit but rejected at /api/auth.
+model InviteRequest {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  status       String    @default("pending")  // pending | approved | rejected | revoked
+  notes        String    @default("")          // Mina memo + reason on reject/revoke
+  code         String?   @unique               // 10-char alphanumeric, set on approve
+  approvedAt   DateTime?
+  rejectedAt   DateTime?
+  revokedAt    DateTime?
+  emailSentAt  DateTime?
+  lastUsedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}

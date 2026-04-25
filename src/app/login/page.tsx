@@ -1,29 +1,45 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+
+// Code shape produced by the invite generator (10 chars from a restricted
+// alphabet). If the input matches this shape we send it as `code`; otherwise
+// we treat it as a password — the same field handles both.
+const CODE_PATTERN = /^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{10}$/;
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const from = searchParams.get("from") || "/dashboard";
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState(false);
+  const [value, setValue] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const code = searchParams.get("code");
+    if (code) setValue(code.toUpperCase());
+  }, [searchParams]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    setError(false);
+    setError(null);
+    const trimmed = value.trim();
+    const looksLikeCode = CODE_PATTERN.test(trimmed.toUpperCase());
+    const body = looksLikeCode
+      ? { code: trimmed.toUpperCase() }
+      : { password: trimmed };
     const res = await fetch("/api/auth", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password }),
+      body: JSON.stringify(body),
     });
     if (res.ok) {
       router.push(from);
     } else {
-      setError(true);
+      setError("패스워드 또는 초대 코드가 올바르지 않습니다");
       setLoading(false);
     }
   }
@@ -31,17 +47,22 @@ function LoginForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       <input
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        placeholder="패스워드 입력"
-        className="w-full rounded-lg border border-border bg-surface px-4 py-3 text-sm placeholder:text-subtle focus:outline-none focus:ring-2 focus:ring-violet-500"
+        type="text"
+        value={value}
+        onChange={(e) => {
+          setValue(e.target.value);
+          if (error) setError(null);
+        }}
+        placeholder="패스워드 또는 초대 코드"
+        autoComplete="off"
+        spellCheck={false}
+        className="w-full rounded-lg border border-border bg-surface px-4 py-3 text-sm placeholder:text-subtle focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono"
         autoFocus
       />
-      {error && <p className="text-xs text-red-600">패스워드가 올바르지 않습니다.</p>}
+      {error && <p className="text-xs text-red-600">{error}</p>}
       <button
         type="submit"
-        disabled={loading || !password}
+        disabled={loading || !value.trim()}
         className="w-full rounded-lg bg-violet-600 py-3 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-40 transition-colors"
       >
         {loading ? "확인 중..." : "입장하기"}
@@ -61,6 +82,13 @@ export default function LoginPage() {
         <Suspense fallback={null}>
           <LoginForm />
         </Suspense>
+        <p className="text-center text-xs text-muted">
+          초대 코드가 없다면{" "}
+          <Link href="/" className="text-violet-600 hover:text-violet-500">
+            랜딩 페이지에서 신청
+          </Link>
+          하세요
+        </p>
       </div>
     </div>
   );
