@@ -379,14 +379,18 @@ export function ValidationHub({ problemCardId }: { problemCardId: string }) {
         hypothesis={drawerHyp}
         contextChips={drawerChips}
         onClose={() => setDrawerHyp(null)}
-        onUpdated={fetchView}
+        onUpdated={async () => {
+          await fetchView();
+        }}
       />
 
       {showSolutionForm && (
         <SolutionInputForm
           problemCardId={problemCardId}
           onClose={() => setShowSolutionForm(false)}
-          onSaved={fetchView}
+          onSaved={async () => {
+            await fetchView();
+          }}
         />
       )}
     </div>
