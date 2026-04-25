@@ -34,8 +34,9 @@ model ProblemCard {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  fitEvaluations  FitEvaluation[]
-  validationPlans ValidationPlan[]
+  fitEvaluations      FitEvaluation[]
+  hypotheses          Hypothesis[]         // axis: existence | severity (problem-level)
+  solutionHypotheses  SolutionHypothesis[]
 }
 
 model FitEvaluation {
@@ -53,35 +54,55 @@ model FitEvaluation {
   problemCard ProblemCard @relation(fields: [problemCardId], references: [id], onDelete: Cascade)
 }
 
-model ValidationPlan {
-  id                 String   @id @default(cuid())
-  problemCardId      String
-  ideaDraft          String
-  interviewQuestions String
-  experimentMethod   String
-  successSignals     String
-  failureSignals     String
-  weeklySteps        String
-  status             String   @default("draft")
-  learnings          String   @default("")
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+model SolutionHypothesis {
+  id            String   @id @default(cuid())
+  problemCardId String
+  statement     String
+  source        String   @default("manual")  // manual | ai_suggested
+  status        String   @default("active")  // active | shelved | confirmed | broken
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   problemCard   ProblemCard    @relation(fields: [problemCardId], references: [id], onDelete: Cascade)
+  hypotheses    Hypothesis[]                  // axis: fit | willingness (solution-level)
   realityChecks RealityCheck[]
 }
 
-model RealityCheck {
-  id               String   @id @default(cuid())
-  validationPlanId String
-  coldInvestor     String
-  honestFriend     String
-  socraticQ        String
-  moderatorSummary String
-  inputContext     String
-  createdAt        DateTime @default(now())
+// Hypothesis represents one of the four validation axes.
+// Exactly one parent FK is set: existence/severity attach to ProblemCard;
+// fit/willingness attach to SolutionHypothesis. Enforced in zod and at the
+// app layer; per-parent unique on (parentId, axis) prevents duplicates.
+model Hypothesis {
+  id                   String   @id @default(cuid())
+  axis                 String   // existence | severity | fit | willingness
+  problemCardId        String?
+  solutionHypothesisId String?
+  prescribedMethods    String   @default("[]")           // JSON array of method keys
+  successSignals       String   @default("")
+  failureSignals       String   @default("")
+  status               String   @default("not_started")  // not_started | in_progress | broken | confirmed
+  findings             String   @default("")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
-  validationPlan ValidationPlan @relation(fields: [validationPlanId], references: [id], onDelete: Cascade)
+  problemCard        ProblemCard?        @relation(fields: [problemCardId], references: [id], onDelete: Cascade)
+  solutionHypothesis SolutionHypothesis? @relation(fields: [solutionHypothesisId], references: [id], onDelete: Cascade)
+
+  @@unique([problemCardId, axis])
+  @@unique([solutionHypothesisId, axis])
+}
+
+model RealityCheck {
+  id                   String   @id @default(cuid())
+  solutionHypothesisId String
+  coldInvestor         String
+  honestFriend         String
+  socraticQ            String
+  moderatorSummary     String
+  inputContext         String
+  createdAt            DateTime @default(now())
+
+  solutionHypothesis SolutionHypothesis @relation(fields: [solutionHypothesisId], references: [id], onDelete: Cascade)
 }
 
 model AgentConversation {
