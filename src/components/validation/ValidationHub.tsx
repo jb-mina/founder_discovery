@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, ArrowUp } from "lucide-react";
+import { Loader2, ArrowUp, ChevronDown, ChevronUp } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { ProblemHeader } from "@/components/validation/ProblemHeader";
 import { MainTabs, type TabKey } from "@/components/validation/MainTabs";
@@ -199,6 +199,28 @@ function SolutionTab({
   onChanged: () => Promise<void>;
   onJumpToProblem: () => void;
 }) {
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  function toggleOne(id: string) {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function expandAll() {
+    setExpandedIds(new Set(activeSolutions.map((s) => s.id)));
+  }
+
+  function collapseAll() {
+    setExpandedIds(new Set());
+  }
+
+  const allExpanded =
+    activeSolutions.length > 0 && activeSolutions.every((s) => expandedIds.has(s.id));
+
   return (
     <div className="space-y-6">
       <section>
@@ -214,12 +236,21 @@ function SolutionTab({
       </section>
 
       {activeSolutions.length > 0 ? (
-        <section className="space-y-5">
-          <div>
-            <h2 className="text-sm font-semibold text-foreground">활성 솔루션 검증 ({activeSolutions.length})</h2>
-            <p className="text-xs text-muted">
-              각 활성 솔루션의 핏·지불 의사 가설과 Reality Check. 둘 다 confirmed면 그 솔루션이 자동 confirmed, 하나라도 broken되면 자동 깨짐 처리됩니다.
-            </p>
+        <section className="space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold text-foreground">활성 솔루션 검증 ({activeSolutions.length})</h2>
+              <p className="text-xs text-muted">
+                기본은 모두 접힘 — 카드별 상태를 한눈에 보고, 깊이 들여다볼 솔루션만 펼치세요.
+              </p>
+            </div>
+            <button
+              onClick={allExpanded ? collapseAll : expandAll}
+              className="flex items-center gap-1 text-xs rounded-lg border border-border bg-canvas hover:bg-wash px-2.5 py-1 text-tertiary shrink-0"
+            >
+              {allExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+              {allExpanded ? "전체 접기" : "전체 펼치기"}
+            </button>
           </div>
           {activeSolutions.map((s) => (
             <SolutionValidationBlock
@@ -233,6 +264,8 @@ function SolutionTab({
                 willingness: s.hypotheses.find((h) => h.axis === "willingness") ?? null,
                 realityCheck: s.realityChecks[0] ?? null,
               }}
+              expanded={expandedIds.has(s.id)}
+              onToggle={() => toggleOne(s.id)}
               onChanged={onChanged}
             />
           ))}
