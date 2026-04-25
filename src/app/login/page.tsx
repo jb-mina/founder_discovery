@@ -56,14 +56,14 @@ function LoginForm() {
         placeholder="패스워드 또는 초대 코드"
         autoComplete="off"
         spellCheck={false}
-        className="w-full rounded-lg border border-border bg-surface px-4 py-3 text-sm placeholder:text-subtle focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono"
+        className="w-full rounded-lg border border-border bg-surface px-4 py-3 text-sm placeholder:text-subtle focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500 font-mono"
         autoFocus
       />
       {error && <p className="text-xs text-red-600">{error}</p>}
       <button
         type="submit"
         disabled={loading || !value.trim()}
-        className="w-full rounded-lg bg-violet-600 py-3 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-40 transition-colors"
+        className="w-full rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 py-3 text-sm font-semibold text-black hover:from-amber-400 hover:to-orange-400 disabled:opacity-40 transition-all shadow-lg shadow-amber-500/20"
       >
         {loading ? "확인 중..." : "입장하기"}
       </button>
@@ -84,7 +84,7 @@ export default function LoginPage() {
         </Suspense>
         <p className="text-center text-xs text-muted">
           초대 코드가 없다면{" "}
-          <Link href="/" className="text-violet-600 hover:text-violet-500">
+          <Link href="/" className="text-amber-600 hover:text-amber-500">
             랜딩 페이지에서 신청
           </Link>
           하세요
