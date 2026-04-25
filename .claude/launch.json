@@ -2,7 +2,7 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "founder-discovery",
+      "name": "my-0to1",
       "runtimeExecutable": "/opt/homebrew/Cellar/node@20/20.18.2/bin/npm",
       "runtimeArgs": ["run", "dev"],
       "port": 3000

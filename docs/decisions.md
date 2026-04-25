@@ -1,4 +1,4 @@
-# Founder Discovery — Decision Log
+# My 0to1 — Decision Log
 
 > 작성 원칙: "왜 이 방향인가"를 저장한다. git은 "무엇을 바꿨는지"를 저장한다.
 > 한 결정당 5줄 이내. 결정 번호는 추가 순서대로.

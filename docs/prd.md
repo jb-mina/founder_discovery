@@ -1,4 +1,4 @@
-# Founder Discovery — PRD
+# My 0to1 — PRD
 
 **버전**: 0.1 | **작성일**: 2026-04-21 | **상태**: Draft
 

@@ -98,7 +98,7 @@ export default async function DashboardPage() {
   return (
     <div className="p-4 md:p-6 space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-foreground">Discovery OS</h1>
+        <h1 className="text-xl font-semibold text-foreground">My 0to1</h1>
         <p className="text-sm text-muted mt-1">나만의 문제와 고객을 찾는 루프</p>
       </div>
 

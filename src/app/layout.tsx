@@ -5,8 +5,8 @@ import "./globals.css";
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
 
 export const metadata: Metadata = {
-  title: "Founder Discovery OS",
-  description: "나만의 문제와 고객을 찾는 개인 발견 시스템",
+  title: "My 0to1",
+  description: "나와 맞는 문제·고객·솔루션 핏을 찾는 0to1 비즈니스 운영체제",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

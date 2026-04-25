@@ -1,4 +1,4 @@
-# My0o1 ( 기존: Founder Discovery) — Claude Code Memory
+# My 0to1 (기존: Founder Discovery) — Claude Code Memory
 
 이 문서는 Claude Code가 이 저장소에서 작업할 때 매번 참조하는 운영 원칙입니다.
 

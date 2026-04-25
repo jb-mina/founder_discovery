@@ -55,8 +55,8 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-canvas">
       <div className="w-full max-w-sm space-y-6 px-6">
         <div className="text-center space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Founder Discovery OS</h1>
-          <p className="text-sm text-muted">나만의 문제와 고객을 찾는 개인 발견 시스템</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">My 0to1</h1>
+          <p className="text-sm text-muted">나와 맞는 문제·고객·솔루션 핏을 찾는 0to1 비즈니스 운영체제</p>
         </div>
         <Suspense fallback={null}>
           <LoginForm />

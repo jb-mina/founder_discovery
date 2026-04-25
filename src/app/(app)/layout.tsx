@@ -15,7 +15,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Desktop sidebar */}
       <aside className="hidden md:flex w-56 shrink-0 border-r border-border bg-surface flex-col">
         <div className="px-4 py-5 border-b border-border">
-          <p className="text-xs font-semibold text-violet-600 uppercase tracking-widest">Discovery OS</p>
+          <p className="text-xs font-semibold text-violet-600 uppercase tracking-widest">My 0to1</p>
         </div>
         <nav className="flex-1 px-2 py-4 space-y-1">
           {nav.map(({ href, label, icon: Icon }) => (
