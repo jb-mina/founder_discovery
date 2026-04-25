@@ -1,9 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import {
-  ArrowLeft,
   ChevronDown,
   ChevronUp,
   Loader2,
@@ -15,7 +13,6 @@ import {
   Scale,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   HypothesisCard,
   type HypothesisCardData,
@@ -26,6 +23,7 @@ import {
 } from "@/components/validation/HypothesisDrawer";
 import { SolutionCard } from "@/components/validation/SolutionCard";
 import { SolutionInputForm } from "@/components/validation/SolutionInputForm";
+import { ProblemHeader } from "@/components/validation/ProblemHeader";
 import { SOLUTION_STATUS_LABELS, type SolutionStatus } from "@/lib/validation-labels";
 
 type ApiHypothesis = HypothesisCardData & {
@@ -57,8 +55,10 @@ type ApiView = {
   id: string;
   title: string;
   who: string;
+  when: string;
   why: string;
   painPoints: string;
+  alternatives: string;
   hypotheses: ApiHypothesis[];
   solutionHypotheses: ApiSolution[];
 };
@@ -168,28 +168,17 @@ export function ValidationHub({ problemCardId }: { problemCardId: string }) {
 
   return (
     <div className="pb-20">
-      {/* Sticky header */}
-      <div className="sticky top-0 z-30 bg-surface border-b border-border px-4 md:px-6 py-3">
-        <div className="flex items-center gap-2 mb-1">
-          <Link
-            href="/validation"
-            className="text-subtle hover:text-secondary"
-            aria-label="목록으로"
-          >
-            <ArrowLeft size={16} />
-          </Link>
-          <h1 className="text-base font-semibold text-foreground line-clamp-1 flex-1 min-w-0">
-            {view.title}
-          </h1>
-          <ProgressDots confirmed={confirmed} total={total} />
-        </div>
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <Badge variant="default">타깃 고객 · {view.who}</Badge>
-          {activeSolution && (
-            <Badge variant="violet">활성 솔루션 · {truncate(activeSolution.statement, 32)}</Badge>
-          )}
-        </div>
-      </div>
+      <ProblemHeader
+        problem={{
+          title: view.title,
+          who: view.who,
+          when: view.when,
+          why: view.why,
+          painPoints: view.painPoints,
+          alternatives: view.alternatives,
+        }}
+        progressDots={{ confirmed, total }}
+      />
 
       <div className="p-4 md:p-6 space-y-8">
         {/* Problem validation */}
@@ -393,24 +382,6 @@ export function ValidationHub({ problemCardId }: { problemCardId: string }) {
           }}
         />
       )}
-    </div>
-  );
-}
-
-function ProgressDots({ confirmed, total }: { confirmed: number; total: number }) {
-  return (
-    <div className="flex items-center gap-1 shrink-0">
-      {Array.from({ length: total }).map((_, i) => (
-        <span
-          key={i}
-          className={`inline-block w-2 h-2 rounded-full ${
-            i < confirmed ? "bg-violet-600" : "bg-wash border border-border"
-          }`}
-        />
-      ))}
-      <span className="ml-1.5 text-xs text-tertiary">
-        {confirmed}/{total}
-      </span>
     </div>
   );
 }
