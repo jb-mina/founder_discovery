@@ -58,6 +58,26 @@ type AgentResponseStatus = "ok" | "error";
 
 type AgentErrorKind = "parse" | "rate_limit" | "timeout" | "other";
 
+type DashboardWidget =
+  | "north_star_problem"
+  | "north_star_solution"
+  | "next_action"
+  | "active_solution"
+  | "trap_alert"
+  | "loop_stage"
+  | "top_fit";
+
+type DashboardTrapKind = "trap_solution_drift" | "trap_empathy_vs_payment";
+
+type RatioBucket = "0" | "lt50" | "gte50";
+
+type LoopStage =
+  | "self_map"
+  | "problems"
+  | "fit"
+  | "problem_validation"
+  | "solution_validation";
+
 export type AnalyticsEvent =
   | {
       event: "landing_section_viewed";
@@ -146,6 +166,26 @@ export type AnalyticsEvent =
         latency_ms: number;
         status: AgentResponseStatus;
         error_kind?: AgentErrorKind;
+      };
+    }
+  | {
+      event: "dashboard_viewed";
+      props: {
+        has_active_solution: boolean;
+        active_solution_count: number;
+        trap_count: number;
+        north_star_problem_bucket: RatioBucket;
+        north_star_solution_bucket: RatioBucket;
+        current_stage: LoopStage;
+      };
+    }
+  | {
+      event: "dashboard_widget_clicked";
+      props: {
+        widget: DashboardWidget;
+        target_route: string;
+        trap_kind?: DashboardTrapKind;
+        loop_stage?: LoopStage;
       };
     };
 
