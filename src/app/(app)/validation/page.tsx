@@ -21,7 +21,7 @@ function ProblemRow({ problem }: { problem: ProblemValidationListItem }) {
   const activeSolution = problem.solutionHypotheses.find((s) => s.status === "active");
 
   return (
-    <Link href={`/validation/${problem.id}`}>
+    <Link href={`/validation/${problem.id}`} className="block">
       <Card className="hover:border-border-strong hover:shadow-md transition-all cursor-pointer space-y-4">
         {/* Title row */}
         <div className="flex items-start justify-between gap-3">
