@@ -1,6 +1,6 @@
 # Agents Inventory
 
-> 마지막 갱신: 2026-04-22
+> 마지막 갱신: 2026-04-30
 > 기준 커밋: `main` 브랜치 현재 상태
 
 ---
@@ -9,8 +9,9 @@
 
 | 상태 | 에이전트 |
 |------|----------|
-| ✅ 구현됨 | Self Insight, Problem Scout, Fit Judge, Validation Designer, Reality Check (3-persona + Moderator) |
-| ❌ 미구현 (PRD 언급) | — (P0 전체 구현됨, Reality Check는 P1이었으나 구현 완료) |
+| ✅ 구현됨 | Self Insight, Problem Scout, Fit Judge, Validation Designer, Solution Suggester, Reality Check (3-persona + Moderator) |
+| 📋 기획됨 (미구현) | **OnePager Composer** — 솔루션 1-pager 초안 작성. Phase 1~3에서 구현 예정 |
+| ❌ 미구현 (PRD 언급) | — |
 | ⚠️ PRD 외 추가됨 | Reality Check Moderator (PRD에는 4번째 에이전트로 언급, 별도 API 없이 reality-check route에 통합) |
 
 **핵심 구조적 문제**: 모든 에이전트가 `lib/agents/` 없이 `app/api/*/route.ts` 내부에 인라인 구현되어 있음. CLAUDE.md 6조("에이전트 호출은 `lib/agents/<name>/` 안에 `prompt.ts` + `schema.ts` + `run.ts` 3파일 구조")와 불일치.
@@ -252,7 +253,75 @@
 
 ---
 
-## 6. PRD 언급 vs 구현 현황
+## 6. OnePager Composer Agent (📋 기획됨, 미구현)
+
+| 항목 | 내용 |
+|------|------|
+| **계획 파일** | `src/lib/agents/one-pager-composer/{prompt.ts, schema.ts, run.ts}` (CLAUDE.md §6 컨벤션) |
+| **PRD 매핑** | Validation 단계 — "OnePager Composer Agent" (P0) |
+| **UI 호출처 (예정)** | `src/components/validation/SolutionValidationBlock.tsx` 안의 "1-pager 초안 생성" CTA |
+| **모델 (예정)** | `claude-sonnet-4-6` |
+| **호출 방식 (예정)** | `client.messages.create()` (비스트리밍, 단일 호출로 10 섹션 생성) |
+| **호출 API (예정)** | `POST /api/one-pagers/[solutionHypothesisId]/draft` |
+
+### 책임 경계
+
+- **하는 것**: 입력 컨텍스트(ProblemCard 풀 + SolutionHypothesis statement + 자식 4축 Hypothesis status·findings 요약) 기반으로 10 섹션 1-pager 한국어 초안 생성. 그뿐.
+- **하지 않는 것**:
+  - 의견·추천·결정 표현 ("이 방향이 좋겠다" 같은 카피 금지)
+  - 자유 텍스트 마커 (`---SECTION---` 등) 사용 — JSON mode + zod로만
+  - Self map 주입 (CLAUDE.md §7 토큰 폭발 함정)
+  - 4축 검증 처방 — Validation Designer 책임. 영역 침범 금지.
+  - 트리거 가드 — 진입 조건(존재·심각도 confirmed + 솔루션 active) 검증은 UI/route 레이어에서.
+
+### 입력 스키마 (예정)
+
+```typescript
+{
+  problemCardId: string,           // route에서 솔루션을 통해 조회
+  solutionHypothesisId: string,    // path param
+}
+// 내부에서 DB 조회 후 컨텍스트 구성:
+// - ProblemCard 풀 6필드
+// - SolutionHypothesis statement
+// - Hypothesis[] 4축 (axis · status · findings 200자)
+```
+
+### 출력 스키마 (예정, zod)
+
+```typescript
+{
+  oneLineSummary:        string,  // 한줄 요약
+  targetCustomer:        string,  // 타깃 고객
+  problem:               string,  // 문제
+  solution:              string,  // 솔루션
+  mvpScope:              string,  // MVP 범위 (min set of features)
+  mvpCostEstimate:       string,  // MVP 구현 비용 추정
+  operatingModel:        string,  // 운영 모델
+  monetization:          string,  // 수익화 가설
+  topRisks:              string,  // 주요 리스크 3개 (자유 텍스트, 줄 분리)
+  validationActions30d:  string,  // 30일 이내 검증 액션
+}
+```
+
+### 생성 시점 정책
+
+- 클라이언트의 명시적 호출(CTA 클릭)에서만 생성 — 자동 트리거 없음
+- 기존 OnePager가 있으면 서버는 무조건 덮어씀. 클라이언트 UI에서 confirm 대화창으로 사용자 의사 확인 후 호출.
+- 생성 후 사용자가 자유 편집(섹션별 textarea + 저장). 편집 중에는 추가 AI 호출 없음.
+
+### 결정 근거
+
+`docs/decisions.md` 2026-04-30 결정 5건 참조:
+- 1-pager는 솔루션 단위(1:1)
+- RC FK는 SolutionHypothesis 유지
+- AI 드래프트 채택 (스캐폴드 X)
+- 트리거는 자동 아닌 CTA
+- 섹션은 텍스트 컬럼 (JSON 아님)
+
+---
+
+## 7. PRD 언급 vs 구현 현황
 
 ### PRD에 있고 구현된 것 ✅
 | PRD 에이전트 | 구현 파일 |
@@ -269,6 +338,7 @@
 ### PRD에 있으나 미구현 ❌
 | 기능 | 설명 |
 |------|------|
+| **OnePager Composer Agent** | 기획 정렬 완료 (2026-04-30). Phase 1~3에서 구현 예정 — 데이터 모델 → 에이전트 → UI |
 | Problem Scout 주기적 업데이트 | 웹 크롤링 기반 자동 갱신 (Weekly job) |
 | Weekly Digest | 주간 Self Map 변화 요약 + 추천 알림 |
 | LearningLog → SelfMap/ProblemCard 역류 | CLAUDE.md 진행 중 항목 |
@@ -279,7 +349,7 @@
 
 ---
 
-## 7. CLAUDE.md 준수 현황
+## 8. CLAUDE.md 준수 현황
 
 | 원칙 | 현황 |
 |------|------|

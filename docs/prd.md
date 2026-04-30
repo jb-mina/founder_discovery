@@ -93,6 +93,17 @@
 - 출력은 statement 텍스트만 — 사용자가 그중 하나를 골라 편집·저장해야 SolutionHypothesis로 등록됨 ("사용자를 대신해 결정하지 않는다" 원칙).
 - *Acceptance criteria*: 사용자가 "후보 받기 → 1개 선택·편집 → 저장"을 1분 이내에 끝낼 수 있음.
 
+**OnePager Composer Agent — 솔루션 1-pager 초안 작성**
+
+- 4축 검증(존재·심각도·핏·지불 의사)이 커버하는 **Desirability** 외에 **Feasibility**(MVP 만들 수 있나)와 **Viability**(만들어도 굴러가나)를 강제로 사고하게 만드는 그릇. 1-pager 자체는 검증 가설이 아니라, 사업화 사고를 트리거하고 Reality Check의 입력을 풍부하게 하는 *scaffold*.
+- 활성 솔루션 1개에 대해 10 섹션 1-pager 초안을 한 번에 생성: **한줄 요약 / 타깃 고객 / 문제 / 솔루션 / MVP 범위(min set of features) / MVP 구현 비용 추정 / 운영 모델 / 수익화 가설 / 주요 리스크 3개 / 30일 이내 검증 액션**.
+- 입력: ProblemCard 풀 + SolutionHypothesis statement + 자식 4축 Hypothesis(status·findings 200자 요약). Self map은 주입하지 않음(토큰 폭발 방지).
+- 출력: 10개 섹션 한국어 텍스트, JSON mode + zod.
+- 트리거: 진입 조건(존재·심각도 둘 다 confirmed + 솔루션 active) 만족 시 `SolutionValidationBlock` 안에 "1-pager 초안 생성" CTA 노출. 진입은 사용자 결정 — 자동 생성 안 함.
+- 책임 경계: 초안 생성만. 의견·추천·결정 표현 금지. 사용자가 모든 섹션 자유 편집 — Solution Suggester 패턴과 동일하게 "AI 후보 → 사용자 편집"으로 자기결정 원칙 준수.
+- 데이터 단위: SolutionHypothesis 1:1 unique. 한 솔루션 = 1-pager 1개.
+- *Acceptance criteria*: CTA 클릭 후 10초 내에 초안 10 섹션을 받고, 즉시 편집 가능한 상태로 저장됨.
+
 **✅ 루프 연결 — 학습의 Self map 반영**
 
 - 인터뷰/실험 결과를 기록하면 Self map·Problem universe·Fit 평가에 반영
@@ -103,7 +114,8 @@
 
 - "솔루션이 먼저인 것 같다", "이건 희망사항일 수 있다" 등 편향 지적
 - 더 필요한 증거/질문 제안
-- *현재 상태*: 구현 완료 (냉정한 투자자 / 솔직한 친구 / 소크라테스식 질문자 + 모더레이터 4 페르소나). Phase 1에서 진입점·부착 단위(현재 ValidationPlan 단위 → SolutionHypothesis 단위)는 조정될 수 있음.
+- **컨텍스트**: 1-pager가 있으면 10 섹션 풀 컨텍스트(MVP 비용·운영·수익화·리스크 포함)를 보고 페르소나 4명이 비판. 없으면 솔루션 statement + 4축 검증 상태만으로 동작(하위호환). RC FK는 SolutionHypothesis 그대로 — 입력만 풍부해짐, 스키마 마이그레이션 없음.
+- *현재 상태*: 구현 완료 (냉정한 투자자 / 솔직한 친구 / 소크라테스식 질문자 + 모더레이터 4 페르소나). 1-pager 통합은 OnePager Composer 도입 후 진행.
 
 ---
 
