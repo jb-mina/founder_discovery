@@ -54,7 +54,37 @@ export type NorthStarFocus = {
   confirmed: number;
   total: number;
   updatedAt: Date;
+  // The single concrete next action for this focus, derived from which axis
+  // is closest to confirmation. Used for the CTA button on the dashboard.
+  nextAxis: HypothesisAxis | null;
+  nextActionLabel: string;
 } | null;
+
+const FOCUS_AXIS_ORDER: HypothesisAxis[] = [
+  "existence",
+  "severity",
+  "fit",
+  "willingness",
+];
+
+const FOCUS_AXIS_ACTION: Record<HypothesisAxis, string> = {
+  existence: "문제 존재 여부 검증하기",
+  severity: "심각도 검증하기",
+  fit: "솔루션 핏 검증하기",
+  willingness: "지불 의사 검증하기",
+};
+
+function focusNextAction(
+  steps: { axis: HypothesisAxis; status: string }[],
+): { axis: HypothesisAxis | null; label: string } {
+  for (const axis of FOCUS_AXIS_ORDER) {
+    const step = steps.find((s) => s.axis === axis);
+    if (step?.status !== "confirmed") {
+      return { axis, label: FOCUS_AXIS_ACTION[axis] };
+    }
+  }
+  return { axis: null, label: "4가설 모두 확인됨 — 솔루션 검토" };
+}
 
 export async function getNorthStarFocus(
   problems?: ProblemValidationListItem[],
@@ -88,6 +118,7 @@ export async function getNorthStarFocus(
   });
   const { p, sol, confirmed, total } = candidates[0];
   const steps = axisStatusFor(p);
+  const next = focusNextAction(steps);
 
   return {
     problemCardId: p.id,
@@ -98,6 +129,8 @@ export async function getNorthStarFocus(
     confirmed,
     total,
     updatedAt: sol.updatedAt,
+    nextAxis: next.axis,
+    nextActionLabel: next.label,
   };
 }
 

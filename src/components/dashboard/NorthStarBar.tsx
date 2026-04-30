@@ -74,6 +74,15 @@ export function NorthStarBar({
           진행 중 <span className="text-amber-700 font-semibold">{accumulated.inProgressAxes}</span>
         </span>
       </div>
+
+      <TrackedLink
+        href={`/validation/${focus.problemCardId}`}
+        widget="north_star_focus"
+        className="mt-4 flex items-center justify-center gap-1.5 w-full rounded-lg bg-violet-600 hover:bg-violet-500 transition-colors px-4 py-2.5 text-sm font-medium text-white"
+      >
+        {focus.nextActionLabel}
+        <ArrowRight size={14} />
+      </TrackedLink>
     </Card>
   );
 }
