@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type {
   Hypothesis,
+  OnePager,
   ProblemCard,
   RealityCheck,
   SolutionHypothesis,
@@ -19,6 +20,7 @@ export type ProblemValidationView = ProblemCard & {
   solutionHypotheses: (SolutionHypothesis & {
     hypotheses: Hypothesis[];
     realityChecks: RealityCheck[];
+    onePager: OnePager | null;
   })[];
   fitEvaluations: { totalScore: number }[];
 };
@@ -35,6 +37,7 @@ export async function getProblemValidationView(
         include: {
           hypotheses: { orderBy: { axis: "asc" } },
           realityChecks: { orderBy: { createdAt: "desc" }, take: 1 },
+          onePager: true,
         },
       },
       fitEvaluations: { select: { totalScore: true } },
