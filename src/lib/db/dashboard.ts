@@ -15,6 +15,31 @@ import type { HypothesisAxis } from "@/lib/agents/validation-designer/schema";
 const TRAP_EMPATHY_STALE_DAYS = 7;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+// ---------- "Broken" gating ----------
+//
+// Once a problem-level axis (existence/severity) is broken, the problem itself
+// is rejected — its solutions stop being meaningful targets. And once a
+// solution-axis (fit/willingness) is broken on the active solution, the solution
+// is "complete-but-failed" and shouldn't pull attention. Both cases are
+// excluded from focus / active list / traps so the dashboard surfaces only
+// what the founder still needs to decide on.
+
+function problemHasBrokenAxis(p: ProblemValidationListItem): boolean {
+  return p.hypotheses.some(
+    (h) =>
+      (h.axis === "existence" || h.axis === "severity") &&
+      h.status === "broken",
+  );
+}
+
+function activeSolutionHasBrokenAxis(
+  active: ProblemValidationListItem["solutionHypotheses"][number],
+): boolean {
+  return active.hypotheses.some(
+    (h) => (h.axis === "fit" || h.axis === "willingness") && h.status === "broken",
+  );
+}
+
 // ---------- North star focus ----------
 
 // The single "current bet" — most recently active solution. Replaces the old
@@ -36,22 +61,33 @@ export async function getNorthStarFocus(
 ): Promise<NorthStarFocus> {
   const list = problems ?? (await listProblemsInValidation());
 
+  // Eligible candidates: an active solution whose parent problem is alive
+  // (no broken problem-axis) and whose own solution-axes are alive
+  // (no broken fit/willingness). The "북극성" should be the most promising
+  // bet, not a dead one that happens to be the most recently touched.
   const candidates: {
     p: ProblemValidationListItem;
     sol: ProblemValidationListItem["solutionHypotheses"][number];
+    confirmed: number;
+    total: number;
   }[] = [];
   for (const p of list) {
+    if (problemHasBrokenAxis(p)) continue;
     const active = p.solutionHypotheses.find((s) => s.status === "active");
-    if (active) candidates.push({ p, sol: active });
+    if (!active) continue;
+    if (activeSolutionHasBrokenAxis(active)) continue;
+    const { confirmed, total } = progressDots(p);
+    candidates.push({ p, sol: active, confirmed, total });
   }
   if (candidates.length === 0) return null;
 
-  candidates.sort(
-    (a, b) => b.sol.updatedAt.getTime() - a.sol.updatedAt.getTime(),
-  );
-  const { p, sol } = candidates[0];
+  // Closest to the finish line first, tie-break by recency.
+  candidates.sort((a, b) => {
+    if (b.confirmed !== a.confirmed) return b.confirmed - a.confirmed;
+    return b.sol.updatedAt.getTime() - a.sol.updatedAt.getTime();
+  });
+  const { p, sol, confirmed, total } = candidates[0];
   const steps = axisStatusFor(p);
-  const { confirmed, total } = progressDots(p);
 
   return {
     problemCardId: p.id,
@@ -224,9 +260,12 @@ export async function getTrapSignals(
 
   // Trap 1 — solution drift: a SolutionHypothesis exists, but problem axes are
   // not both confirmed. Surface the oldest two such cards.
+  // Skip problems with any broken problem-axis: those are already-rejected
+  // problems, not "drifting" ones — the founder has decided.
   const drift = list
     .filter((p) => {
       if (p.solutionHypotheses.length === 0) return false;
+      if (problemHasBrokenAxis(p)) return false;
       const e = p.hypotheses.find((h) => h.axis === "existence");
       const s = p.hypotheses.find((h) => h.axis === "severity");
       return e?.status !== "confirmed" || s?.status !== "confirmed";
@@ -249,6 +288,7 @@ export async function getTrapSignals(
 
   // Trap 2 — empathy↔payment: solution.fit confirmed AND willingness !confirmed
   // AND willingness.updatedAt is older than the threshold.
+  // Skip when willingness is already broken — it's not "stalled," it's decided.
   const now = Date.now();
   const empathyMatches: TrapSignal[] = [];
   for (const p of list) {
@@ -258,6 +298,7 @@ export async function getTrapSignals(
       if (!fit || !willingness) continue;
       if (fit.status !== "confirmed") continue;
       if (willingness.status === "confirmed") continue;
+      if (willingness.status === "broken") continue;
       const staleMs = now - willingness.updatedAt.getTime();
       if (staleMs < TRAP_EMPATHY_STALE_DAYS * DAY_MS) continue;
       empathyMatches.push({
@@ -301,8 +342,15 @@ export async function getActiveSolutionList(
 
   const allRows: ActiveSolutionRow[] = [];
   for (const p of list) {
+    // Skip problems that are already rejected at the problem level — their
+    // solution work no longer matters.
+    if (problemHasBrokenAxis(p)) continue;
     const active = p.solutionHypotheses.find((s) => s.status === "active");
     if (!active) continue;
+    // Defense-in-depth: recomputeSolutionStatus cascade should have already
+    // moved any solution with a broken solution-axis to status "broken", but
+    // legacy rows from before that cascade can slip through.
+    if (activeSolutionHasBrokenAxis(active)) continue;
     const steps = axisStatusFor(p);
     const { confirmed, total } = progressDots(p);
     const status = deriveListStatus(p);
