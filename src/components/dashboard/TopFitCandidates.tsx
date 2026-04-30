@@ -19,7 +19,7 @@ export function TopFitCandidates({ rows }: { rows: TopFitCandidate[] }) {
 
   return (
     <div>
-      <h2 className="text-sm font-semibold text-foreground mb-3">
+      <h2 className="text-h2 font-semibold text-foreground mb-3">
         상위 문제 (Fit 순)
       </h2>
       <div className="space-y-2">
@@ -43,7 +43,7 @@ export function TopFitCandidates({ rows }: { rows: TopFitCandidate[] }) {
               {row.inValidation && row.status ? (
                 <Badge variant={row.status.variant}>{row.status.label}</Badge>
               ) : (
-                <span className="text-[11px] text-violet-700 font-medium flex items-center gap-0.5 shrink-0">
+                <span className="text-xs text-violet-700 font-medium flex items-center gap-0.5 shrink-0">
                   검증 시작 <ArrowRight size={11} />
                 </span>
               )}

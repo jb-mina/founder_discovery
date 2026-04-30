@@ -34,7 +34,7 @@ export default async function DashboardPage() {
       />
 
       <div>
-        <h1 className="text-xl font-semibold text-foreground">My 0to1</h1>
+        <h1 className="text-display font-semibold text-foreground">My 0to1</h1>
         <p className="text-sm text-muted mt-1">
           오늘 무엇을 / 얼마나 확신 / 어디서 막혀 있는가
         </p>

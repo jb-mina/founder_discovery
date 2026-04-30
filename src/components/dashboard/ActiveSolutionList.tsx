@@ -21,12 +21,9 @@ export function ActiveSolutionList({ rows }: { rows: ActiveSolutionRow[] }) {
 
   return (
     <div>
-      <div className="flex items-baseline justify-between mb-3">
-        <h2 className="text-sm font-semibold text-foreground">
-          진행 중인 솔루션 <span className="text-subtle font-normal">({rows.length})</span>
-        </h2>
-        <p className="text-xs text-muted">4가설 검증 진행 상황</p>
-      </div>
+      <h2 className="text-h2 font-semibold text-foreground mb-3">
+        진행 중인 솔루션 <span className="text-subtle font-normal">({rows.length})</span>
+      </h2>
       <div className="space-y-2.5">
         {rows.map((row) => (
           <TrackedLink
@@ -51,7 +48,7 @@ export function ActiveSolutionList({ rows }: { rows: ActiveSolutionRow[] }) {
                   >
                     확인 {row.confirmed}/{row.total}
                   </Badge>
-                  <span className="text-[10px] text-subtle">
+                  <span className="text-xs text-subtle">
                     {timeAgo(row.updatedAt)}
                   </span>
                 </div>

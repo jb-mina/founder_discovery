@@ -2,6 +2,12 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { AccumulatedLearning } from "@/lib/db/dashboard";
 
+type BadgeItem = {
+  label: string;
+  value: number;
+  variant: "green" | "red" | "amber" | "violet" | "default" | "blue";
+};
+
 export function AccumulatedLearningStrip({ data }: { data: AccumulatedLearning }) {
   const allZero =
     data.confirmedAxes === 0 &&
@@ -14,31 +20,38 @@ export function AccumulatedLearningStrip({ data }: { data: AccumulatedLearning }
 
   if (allZero) return null;
 
-  const items: { label: string; value: number; variant: "green" | "red" | "amber" | "violet" | "default" | "blue" }[] = [
-    { label: "확인된 가설", value: data.confirmedAxes, variant: "green" },
-    { label: "깨진 가설", value: data.brokenAxes, variant: "red" },
-    { label: "진행 중 가설", value: data.inProgressAxes, variant: "amber" },
+  const hypothesisItems: BadgeItem[] = [
+    { label: "확인됨", value: data.confirmedAxes, variant: "green" },
+    { label: "깨짐", value: data.brokenAxes, variant: "red" },
+    { label: "진행 중", value: data.inProgressAxes, variant: "amber" },
+  ];
+  const solutionItems: BadgeItem[] = [
+    { label: "확인됨", value: data.confirmedSolutions, variant: "green" },
+    { label: "깨짐", value: data.brokenSolutions, variant: "red" },
+    { label: "보류", value: data.shelvedSolutions, variant: "default" },
     { label: "Reality Check", value: data.realityCheckCount, variant: "blue" },
-    { label: "확인된 솔루션", value: data.confirmedSolutions, variant: "green" },
-    { label: "깨진 솔루션", value: data.brokenSolutions, variant: "red" },
-    { label: "보류된 솔루션", value: data.shelvedSolutions, variant: "default" },
   ];
 
   return (
     <Card className="bg-wash">
-      <div className="flex items-baseline justify-between mb-2">
-        <p className="text-sm font-semibold text-foreground">누적 컨텍스트</p>
-        <p className="text-[11px] text-subtle">
-          깰수록·살릴수록 깊어지는 Real moat
-        </p>
-      </div>
-      <div className="flex flex-wrap gap-1.5">
-        {items.map((it) => (
-          <Badge key={it.label} variant={it.variant} className="text-[11px]">
-            {it.label} <span className="ml-1 font-bold">{it.value}</span>
-          </Badge>
-        ))}
+      <p className="text-h2 font-semibold text-foreground mb-3">누적 컨텍스트</p>
+      <div className="space-y-2.5">
+        <Group label="가설" items={hypothesisItems} />
+        <Group label="솔루션" items={solutionItems} />
       </div>
     </Card>
+  );
+}
+
+function Group({ label, items }: { label: string; items: BadgeItem[] }) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="text-xs text-muted w-12 shrink-0">{label}</span>
+      {items.map((it) => (
+        <Badge key={it.label} variant={it.variant}>
+          {it.label} <span className="ml-1 font-bold">{it.value}</span>
+        </Badge>
+      ))}
+    </div>
   );
 }

@@ -62,10 +62,7 @@ export function NorthStarBar({ data }: { data: NorthStarSnapshot }) {
           className="block group"
         >
           <div className="flex items-baseline justify-between gap-3 mb-1">
-            <p className="text-sm text-muted">
-              <span className="font-medium text-foreground">1차 — 문제 확신</span>{" "}
-              <span className="text-subtle">"풀어도 되겠다"</span>
-            </p>
+            <p className="text-sm font-medium text-foreground">1차 — 문제 확신</p>
             <p className="text-h2 font-semibold text-green-700 tabular-nums">
               {data.problemConfirmed}/{data.problemTotal}
             </p>
@@ -84,10 +81,7 @@ export function NorthStarBar({ data }: { data: NorthStarSnapshot }) {
           className="block group"
         >
           <div className="flex items-baseline justify-between gap-3 mb-1">
-            <p className="text-sm text-muted">
-              <span className="font-medium text-foreground">2차 — 솔루션 검증</span>{" "}
-              <span className="text-subtle">"실제로 작동한다"</span>
-            </p>
+            <p className="text-sm font-medium text-foreground">2차 — 솔루션 검증</p>
             <p className="text-h2 font-semibold text-violet-700 tabular-nums">
               {data.solutionConfirmed}/{data.solutionTotal}
             </p>

@@ -1,4 +1,4 @@
-import { Brain, Crosshair, Scale, Search, Beaker, RotateCw } from "lucide-react";
+import { Brain, Crosshair, Scale, Search, Beaker } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import type { LoopFlow as LoopFlowData, LoopStage } from "@/lib/db/dashboard";
 import { TrackedLink } from "./TrackedLink";
@@ -6,17 +6,16 @@ import { TrackedLink } from "./TrackedLink";
 type Node = {
   stage: LoopStage;
   label: string;
-  caption: string;
   href: string;
   icon: typeof Brain;
 };
 
 const NODES: Node[] = [
-  { stage: "self_map", label: "Self Map", caption: "나 이해하기", href: "/self-map", icon: Brain },
-  { stage: "problems", label: "Problem Universe", caption: "문제 모으기", href: "/problems", icon: Crosshair },
-  { stage: "fit", label: "Founder-Problem Fit", caption: "내 문제 고르기", href: "/problems", icon: Scale },
-  { stage: "problem_validation", label: "문제 검증", caption: "존재·심각도", href: "/validation", icon: Search },
-  { stage: "solution_validation", label: "솔루션 검증", caption: "핏·지불 의사", href: "/validation", icon: Beaker },
+  { stage: "self_map", label: "Self Map", href: "/self-map", icon: Brain },
+  { stage: "problems", label: "Problem Universe", href: "/problems", icon: Crosshair },
+  { stage: "fit", label: "Founder-Problem Fit", href: "/problems", icon: Scale },
+  { stage: "problem_validation", label: "문제 검증", href: "/validation", icon: Search },
+  { stage: "solution_validation", label: "솔루션 검증", href: "/validation", icon: Beaker },
 ];
 
 function countFor(stage: LoopStage, data: LoopFlowData): number {
@@ -37,12 +36,7 @@ function countFor(stage: LoopStage, data: LoopFlowData): number {
 export function LoopFlow({ data }: { data: LoopFlowData }) {
   return (
     <Card>
-      <div className="flex items-baseline justify-between mb-4">
-        <p className="text-sm font-semibold text-foreground">0to1 루프</p>
-        <p className="text-[11px] text-subtle flex items-center gap-1">
-          학습 역류로 다시 돌아옴 <RotateCw size={10} />
-        </p>
-      </div>
+      <p className="text-h2 font-semibold text-foreground mb-4">0to1 루프</p>
       <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
         {NODES.map((node) => {
           const Icon = node.icon;
@@ -64,7 +58,7 @@ export function LoopFlow({ data }: { data: LoopFlowData }) {
                 }`}
               >
                 {isCurrent && (
-                  <span className="absolute -top-1.5 -right-1.5 inline-flex items-center justify-center rounded-full bg-violet-600 text-white text-[9px] font-semibold px-1.5 py-0.5">
+                  <span className="absolute -top-1.5 -right-1.5 inline-flex items-center justify-center rounded-full bg-violet-600 text-white text-xs font-semibold px-1.5 py-0.5">
                     지금
                   </span>
                 )}
@@ -73,13 +67,12 @@ export function LoopFlow({ data }: { data: LoopFlowData }) {
                     size={14}
                     className={isCurrent ? "text-violet-700" : "text-subtle"}
                   />
-                  <span className="text-[11px] font-semibold text-foreground truncate">
+                  <span className="text-xs font-semibold text-foreground truncate">
                     {node.label}
                   </span>
                 </div>
-                <p className="text-[10px] text-muted truncate">{node.caption}</p>
                 <p
-                  className={`text-xs font-bold mt-1.5 ${
+                  className={`text-h2 font-bold tabular-nums ${
                     isCurrent ? "text-violet-700" : "text-tertiary"
                   }`}
                 >

@@ -1,16 +1,7 @@
 import { ArrowRight, Sparkles } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import type { NextAction } from "@/lib/db/dashboard";
 import { TrackedLink } from "./TrackedLink";
-
-const PRIORITY_LABEL: Record<NonNullable<NextAction>["priority"], string> = {
-  in_progress_problem: "진행 중인 문제 검증 이어가기",
-  in_progress_solution: "진행 중인 솔루션 검증 이어가기",
-  no_active_solution: "솔루션 가설 등록",
-  problem_not_started: "문제 검증 시작",
-  fit_top_candidate: "Fit 최고점 문제 검증 시작",
-};
 
 export function NextActionCard({ action }: { action: NextAction }) {
   if (!action) {
@@ -41,15 +32,10 @@ export function NextActionCard({ action }: { action: NextAction }) {
     <Card className="border-violet-200 bg-violet-50">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <p className="text-xs text-violet-700 font-medium flex items-center gap-1">
-              <Sparkles size={12} /> 오늘의 다음 액션
-            </p>
-            <Badge variant="violet" className="text-[10px]">
-              {PRIORITY_LABEL[action.priority]}
-            </Badge>
-          </div>
-          <p className="font-medium text-sm text-foreground truncate">
+          <p className="text-xs text-violet-700 font-medium flex items-center gap-1 mb-1">
+            <Sparkles size={12} /> 오늘의 다음 액션
+          </p>
+          <p className="font-medium text-h2 text-foreground truncate">
             {action.title}
           </p>
           <p className="text-xs text-muted mt-0.5">{action.nextStep}</p>
