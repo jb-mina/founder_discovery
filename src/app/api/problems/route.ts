@@ -9,6 +9,8 @@ export async function GET(req: NextRequest) {
 
   const cards = await prisma.problemCard.findMany({
     where: {
+      hypotheses: { none: {} },
+      solutionHypotheses: { none: {} },
       ...(category ? { category } : {}),
       ...(source ? { source } : {}),
       ...(q ? { OR: [{ title: { contains: q } }, { who: { contains: q } }, { painPoints: { contains: q } }] } : {}),
