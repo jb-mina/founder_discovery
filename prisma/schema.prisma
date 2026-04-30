@@ -66,6 +66,7 @@ model SolutionHypothesis {
   problemCard   ProblemCard    @relation(fields: [problemCardId], references: [id], onDelete: Cascade)
   hypotheses    Hypothesis[]                  // axis: fit | willingness (solution-level)
   realityChecks RealityCheck[]
+  onePager      OnePager?
 }
 
 // Hypothesis represents one of the four validation axes.
@@ -101,6 +102,32 @@ model RealityCheck {
   moderatorSummary     String
   inputContext         String
   createdAt            DateTime @default(now())
+
+  solutionHypothesis SolutionHypothesis @relation(fields: [solutionHypothesisId], references: [id], onDelete: Cascade)
+}
+
+// Solution-level 1-pager — drafted by OnePager Composer, edited by user.
+// Bridges Desirability (4-axis) to Feasibility/Viability thinking. RC reads
+// this as richer context when present; RC FK stays on SolutionHypothesis.
+// 10 sections stored as plain text columns (per docs/decisions.md 2026-04-30
+// — JSON deferred to v2 if structuring becomes necessary).
+model OnePager {
+  id                    String   @id @default(cuid())
+  solutionHypothesisId  String   @unique
+  oneLineSummary        String   @default("")
+  targetCustomer        String   @default("")
+  problem               String   @default("")
+  solution              String   @default("")
+  mvpScope              String   @default("")
+  mvpCostEstimate       String   @default("")
+  operatingModel        String   @default("")
+  monetization          String   @default("")
+  topRisks              String   @default("")  // 자유 텍스트 (3개를 줄 분리로)
+  validationActions30d  String   @default("")  // 자유 텍스트
+  draftGeneratedAt      DateTime?
+  lastEditedAt          DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
   solutionHypothesis SolutionHypothesis @relation(fields: [solutionHypothesisId], references: [id], onDelete: Cascade)
 }
