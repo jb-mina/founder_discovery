@@ -36,15 +36,10 @@ export default async function ValidationListPage() {
 
   return (
     <div className="p-4 md:p-6 space-y-6">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <ClipboardList size={20} className="text-violet-600" />
-            <h1 className="text-lg font-semibold text-foreground">Validating</h1>
-          </div>
-          <p className="text-sm text-muted mt-1">
-            검증 진행 중인 문제 카드. 단계별 탭으로 묶여 있습니다.
-          </p>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <ClipboardList size={20} className="text-violet-600" />
+          <h1 className="text-h1 font-semibold text-foreground">Validating</h1>
         </div>
         <AddProblemTrigger eligible={eligible} />
       </div>

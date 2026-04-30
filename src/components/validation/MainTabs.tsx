@@ -19,18 +19,32 @@ export function MainTabs({
   activeSolutionCount: number;
   recommended: TabKey | null;
 }) {
-  const tabs: { key: TabKey; label: string; subtitle: string; isDone: boolean }[] = [
+  type Tab = {
+    key: TabKey;
+    label: string;
+    indicator: "done" | "ratio" | "count" | "none";
+    confirmed: number;
+    total: number;
+    count: number;
+  };
+
+  const tabs: Tab[] = [
     {
       key: "problem",
       label: "문제 검증",
-      subtitle: `${problemConfirmed}/${problemTotal}`,
-      isDone: problemTotal > 0 && problemConfirmed === problemTotal,
+      indicator:
+        problemTotal > 0 && problemConfirmed === problemTotal ? "done" : "ratio",
+      confirmed: problemConfirmed,
+      total: problemTotal,
+      count: 0,
     },
     {
       key: "solution",
       label: "솔루션 검증",
-      subtitle: activeSolutionCount > 0 ? `활성 ${activeSolutionCount}` : "",
-      isDone: false,
+      indicator: activeSolutionCount > 0 ? "count" : "none",
+      confirmed: 0,
+      total: 0,
+      count: activeSolutionCount,
     },
   ];
 
@@ -51,15 +65,34 @@ export function MainTabs({
           >
             <span className="flex items-center justify-center gap-2">
               {tab.label}
-              {tab.isDone ? (
-                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-green-100 text-green-700">
+              {tab.indicator === "done" && (
+                <span
+                  className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-green-100 text-green-700"
+                  aria-label="완료"
+                >
                   <Check size={10} strokeWidth={3} />
                 </span>
-              ) : tab.subtitle ? (
-                <span className={`text-xs ${isActive ? "text-violet-500" : "text-subtle"}`}>
-                  {tab.subtitle}
+              )}
+              {tab.indicator === "ratio" && (
+                <span
+                  className={`text-xs ${isActive ? "text-violet-500" : "text-subtle"}`}
+                  aria-label={`${tab.confirmed} / ${tab.total} 확인`}
+                >
+                  {tab.confirmed}/{tab.total}
                 </span>
-              ) : null}
+              )}
+              {tab.indicator === "count" && (
+                <span
+                  className={`inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full text-xs font-semibold tabular-nums ${
+                    isActive
+                      ? "bg-violet-100 text-violet-700"
+                      : "bg-wash text-tertiary"
+                  }`}
+                  aria-label={`활성 솔루션 ${tab.count}개`}
+                >
+                  {tab.count}
+                </span>
+              )}
               {isRecommended && (
                 <span
                   className="absolute top-2 right-3 inline-block w-1.5 h-1.5 rounded-full bg-violet-500 animate-pulse"

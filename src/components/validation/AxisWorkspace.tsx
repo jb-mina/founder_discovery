@@ -37,11 +37,15 @@ export function AxisWorkspace({
   onUpdated,
   loadingPlaceholder,
   contextChip,
+  hideAxisHeader,
 }: {
   hypothesis: AxisWorkspaceData | null;
   onUpdated: () => void | Promise<void>;
   loadingPlaceholder?: string;
   contextChip?: { label: string; value: string };
+  // When the parent already labels the axis (e.g. tab label), suppress the
+  // axis name h3 and only render the one-line description.
+  hideAxisHeader?: boolean;
 }) {
   const [findings, setFindings] = useState("");
   const [status, setStatus] = useState<HypothesisStatus>("not_started");
@@ -101,19 +105,18 @@ export function AxisWorkspace({
         </div>
       )}
 
-      {/* Header */}
-      <div>
-        <p className="text-xs text-muted">검증 가설</p>
-        <h3 className="text-base font-semibold text-foreground">{AXIS_LABELS[axis]}</h3>
-        <p className="text-xs text-muted mt-0.5">{AXIS_DESCRIPTIONS[axis]}</p>
-      </div>
+      {!hideAxisHeader && (
+        <div>
+          <h3 className="text-h2 font-semibold text-foreground">{AXIS_LABELS[axis]}</h3>
+          <p className="text-xs text-muted mt-0.5">{AXIS_DESCRIPTIONS[axis]}</p>
+        </div>
+      )}
+      {hideAxisHeader && (
+        <p className="text-xs text-muted">{AXIS_DESCRIPTIONS[axis]}</p>
+      )}
 
       {/* Status */}
       <div>
-        <div className="flex items-baseline justify-between mb-2">
-          <p className="text-xs text-muted">진행 상태</p>
-          <p className="text-xs text-subtle">클릭해 변경</p>
-        </div>
         <div className="flex flex-wrap gap-1.5">
           {STATUS_OPTIONS.map((s) => (
             <button
@@ -135,7 +138,7 @@ export function AxisWorkspace({
 
       {/* Methods */}
       <div>
-        <p className="text-xs text-muted mb-2">추천 검증 메서드 (우선순위 순)</p>
+        <p className="text-xs text-muted mb-2">추천 검증 메서드</p>
         {methods.length > 0 ? (
           <ul className="space-y-1">
             {methods.map((m, i) => (
@@ -165,7 +168,7 @@ export function AxisWorkspace({
       {/* Findings */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <p className="text-xs text-muted">findings (관찰·인터뷰 결과)</p>
+          <p className="text-xs text-muted">기록</p>
           {findings !== (hypothesis.findings ?? "") && (
             <button
               onClick={saveFindings}
@@ -181,8 +184,8 @@ export function AxisWorkspace({
           value={findings}
           onChange={(e) => setFindings(e.target.value)}
           rows={4}
-          placeholder="검증에서 관찰한 사실·발견. (정식 LearningLog는 Phase 2 도입 예정)"
-          className="w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 resize-y"
+          placeholder="검증에서 관찰한 사실·발견"
+          className="w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 resize-y max-h-64"
         />
       </div>
     </Card>

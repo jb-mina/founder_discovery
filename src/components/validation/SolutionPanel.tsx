@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronUp, Loader2, Plus, Sparkles } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { ChevronDown, ChevronUp, Loader2, Plus } from "lucide-react";
 import { SolutionCard } from "@/components/validation/SolutionCard";
 import { SolutionInputForm } from "@/components/validation/SolutionInputForm";
 
@@ -15,129 +14,77 @@ export type SolutionPanelData = {
   hypothesesTotal: number;
 };
 
+// SolutionPanel now renders the inactive solutions accordion (shelved /
+// broken / confirmed) and the "+ 새 가설" CTA. Active solutions are
+// surfaced as full workspaces by ValidationHub one level up — so this
+// panel intentionally does NOT show active cards anymore.
 export function SolutionPanel({
   problemCardId,
-  solutions,
+  inactiveSolutions,
   onChanged,
 }: {
   problemCardId: string;
-  solutions: SolutionPanelData[];
+  inactiveSolutions: SolutionPanelData[];
   onChanged: () => void | Promise<void>;
 }) {
   const [showForm, setShowForm] = useState(false);
-  const [showShelved, setShowShelved] = useState(false);
-  const [statusUpdating, setStatusUpdating] = useState<string | null>(null);
+  const [showInactive, setShowInactive] = useState(false);
+  const [reactivating, setReactivating] = useState<string | null>(null);
 
-  const visible = solutions.filter((s) => s.status !== "shelved");
-  const shelved = solutions.filter((s) => s.status === "shelved");
-  const activeCount = solutions.filter((s) => s.status === "active").length;
-
-  async function setStatus(id: string, status: "active" | "shelved") {
-    setStatusUpdating(id);
+  // Re-activate a shelved hypothesis. Broken/confirmed are auto-derived
+  // from child Hypothesis status, so direct toggling for those would be
+  // a no-op — but the user can still see them for context.
+  async function reactivate(id: string) {
+    setReactivating(id);
     await fetch(`/api/solution-hypotheses/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status: "active" }),
     });
     await onChanged();
-    setStatusUpdating(null);
-  }
-
-  if (solutions.length === 0) {
-    return (
-      <>
-        <Card className="text-center py-8">
-          <Sparkles size={20} className="mx-auto mb-2 text-violet-400" />
-          <p className="text-sm text-tertiary mb-2">이 문제에 대한 솔루션 가설을 추가해주세요</p>
-          <p className="text-xs text-muted mb-4">
-            여러 솔루션을 병렬로 등록해 검증 메서드·Reality Check까지 비교한 뒤 실행 여부를 결정할 수 있습니다.
-          </p>
-          <button
-            onClick={() => setShowForm(true)}
-            className="text-sm rounded-lg bg-violet-600 px-3 py-2 text-white hover:bg-violet-500"
-          >
-            솔루션 가설 시작
-          </button>
-        </Card>
-        {showForm && (
-          <SolutionInputForm
-            problemCardId={problemCardId}
-            onClose={() => setShowForm(false)}
-            onSaved={async () => {
-              await onChanged();
-            }}
-          />
-        )}
-      </>
-    );
+    setReactivating(null);
   }
 
   return (
     <>
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-muted">
-            {activeCount > 0
-              ? `활성 솔루션 ${activeCount}개 — 각각의 검증 처방을 아래에서 비교하세요`
-              : "활성 솔루션 없음 — 카드를 클릭해 활성화하거나 새 가설을 추가하세요"}
-          </p>
+      <div className="flex items-center justify-between gap-3">
+        <button
+          onClick={() => setShowForm(true)}
+          className="flex items-center gap-1.5 text-sm rounded-lg bg-violet-600 px-3 py-2 text-white hover:bg-violet-500"
+        >
+          <Plus size={14} /> 새 가설
+        </button>
+        {inactiveSolutions.length > 0 && (
           <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center gap-1 text-xs rounded-lg bg-violet-600 px-2.5 py-1.5 text-white hover:bg-violet-500"
+            onClick={() => setShowInactive((v) => !v)}
+            className="flex items-center gap-1 text-xs text-tertiary hover:text-secondary"
           >
-            <Plus size={12} /> 새 가설
+            {showInactive ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            보류·완료·깨진 가설 {inactiveSolutions.length}개
           </button>
-        </div>
+        )}
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {visible.map((s) => (
+      {showInactive && inactiveSolutions.length > 0 && (
+        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 opacity-80">
+          {inactiveSolutions.map((s) => (
             <SolutionCard
               key={s.id}
               solution={s}
-              emphasized={s.status === "active"}
               onClick={() => {
-                if (s.status !== "active" && statusUpdating !== s.id) {
-                  setStatus(s.id, "active");
+                if (s.status === "shelved" && reactivating !== s.id) {
+                  reactivate(s.id);
                 }
               }}
             />
           ))}
-          {statusUpdating && (
+          {reactivating && (
             <span className="flex items-center gap-1 text-xs text-subtle col-span-full">
               <Loader2 size={12} className="animate-spin" /> 활성화 중...
             </span>
           )}
         </div>
-
-        <p className="text-xs text-subtle text-right">
-          broken / confirmed는 가설 검증 결과로 자동 결정 · 사용자는 활성 / 보류만 관리
-        </p>
-
-        {shelved.length > 0 && (
-          <div>
-            <button
-              onClick={() => setShowShelved((v) => !v)}
-              className="flex items-center gap-1 text-xs text-subtle hover:text-secondary"
-            >
-              {showShelved ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-              보류된 가설 {shelved.length}개 {showShelved ? "접기" : "보기"}
-            </button>
-            {showShelved && (
-              <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-3 opacity-70">
-                {shelved.map((s) => (
-                  <SolutionCard
-                    key={s.id}
-                    solution={s}
-                    onClick={() => {
-                      if (statusUpdating !== s.id) setStatus(s.id, "active");
-                    }}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      )}
 
       {showForm && (
         <SolutionInputForm

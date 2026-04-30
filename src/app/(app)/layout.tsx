@@ -45,7 +45,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             className="flex-1 flex flex-col items-center gap-1 py-2.5 text-tertiary hover:text-foreground transition-colors"
           >
             <Icon size={20} />
-            <span className="text-[10px]">{short}</span>
+            <span className="text-xs">{short}</span>
           </Link>
         ))}
       </nav>

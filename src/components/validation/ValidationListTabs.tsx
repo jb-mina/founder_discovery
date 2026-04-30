@@ -97,13 +97,13 @@ function SolutionTab({
     <div className="space-y-8">
       {pending.length > 0 && (
         <section className="space-y-4">
-          <SubHeader label="솔루션 등록 대기" count={pending.length} caption="문제 검증은 끝났지만 시도 중인 솔루션이 없는 카드" />
+          <SubHeader label="솔루션 등록 대기" count={pending.length} />
           <RowList items={pending} />
         </section>
       )}
       {solution.length > 0 && (
         <section className="space-y-4">
-          <SubHeader label="솔루션 검증 중" count={solution.length} caption="활성 솔루션의 핏·지불 의사 확인 단계" />
+          <SubHeader label="솔루션 검증 중" count={solution.length} />
           <RowList items={solution} />
         </section>
       )}
@@ -113,25 +113,16 @@ function SolutionTab({
 
 function CompletedTab({ items }: { items: ProblemValidationListItem[] }) {
   if (items.length === 0) {
-    return <EmptyTab caption="아직 4가설을 모두 확인한 카드가 없습니다." />;
+    return <EmptyTab caption="검증 완료된 카드가 없습니다." />;
   }
   return <RowList items={items} />;
 }
 
-function SubHeader({
-  label,
-  count,
-  caption,
-}: {
-  label: string;
-  count: number;
-  caption: string;
-}) {
+function SubHeader({ label, count }: { label: string; count: number }) {
   return (
-    <div className="flex items-baseline gap-3">
+    <div className="flex items-baseline gap-2">
       <h2 className="text-sm font-semibold text-foreground">{label}</h2>
       <span className="text-xs text-muted">{count}</span>
-      <p className="text-xs text-subtle truncate">{caption}</p>
     </div>
   );
 }

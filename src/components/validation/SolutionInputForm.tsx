@@ -80,9 +80,9 @@ export function SolutionInputForm({
       <div className="bg-surface rounded-xl border border-border shadow-lg w-full max-w-xl flex flex-col max-h-[90vh]">
         <div className="px-5 py-4 border-b border-border flex items-start justify-between gap-3">
           <div>
-            <h2 className="font-semibold text-sm text-foreground">솔루션 가설 추가</h2>
+            <h2 className="font-semibold text-h2 text-foreground">솔루션 가설 추가</h2>
             <p className="text-xs text-muted mt-0.5">
-              직접 입력하거나, 에이전트 후보 3개를 받아 골라 편집할 수 있습니다. 저장 시 fit·지불 의사 검증 처방이 자동 생성됩니다.
+              직접 입력하거나 에이전트 후보를 골라 편집하세요. 저장 시 검증 처방이 자동 생성됩니다.
             </p>
           </div>
           <button onClick={onClose} className="text-subtle hover:text-secondary p-1" aria-label="닫기">
@@ -105,7 +105,7 @@ export function SolutionInputForm({
               )}
               {loadingCandidates && (
                 <span className="flex items-center gap-1 text-xs text-violet-600">
-                  <Loader2 size={12} className="animate-spin" /> 생성 중 (~10초)
+                  <Loader2 size={12} className="animate-spin" /> 생성 중...
                 </span>
               )}
             </div>
@@ -155,7 +155,7 @@ export function SolutionInputForm({
                 if (saveError) setSaveError(null);
               }}
               rows={6}
-              placeholder="누가 어떤 상황에서 무엇을 하는 솔루션인지 1~3문장으로. 검증 대상 가설입니다 (답이 아님)."
+              placeholder="누가 어떤 상황에서 무엇을 하는 솔루션인지 1~3문장으로. 답이 아니라 검증 대상 가설로 적습니다."
               className="w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 resize-y"
             />
             {saveError && <p className="text-xs text-red-600 mt-1">{saveError}</p>}

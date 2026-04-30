@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, ArrowUp, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { ProblemHeader } from "@/components/validation/ProblemHeader";
 import { MainTabs, type TabKey } from "@/components/validation/MainTabs";
@@ -13,6 +13,9 @@ import type { OnePagerData } from "@/components/validation/OnePagerSection";
 type ApiHypothesis = AxisWorkspaceData & {
   problemCardId: string | null;
   solutionHypothesisId: string | null;
+  // Used by SolutionValidationBlock to pick the most-recently-edited tool
+  // as the default tab on mount.
+  updatedAt: string;
 };
 
 type ApiRealityCheck = {
@@ -95,17 +98,17 @@ export function ValidationHub({ problemCardId }: { problemCardId: string }) {
     return <div className="p-6 text-sm text-red-600">{error ?? "문제를 찾을 수 없습니다"}</div>;
   }
 
-  // -------- derived state --------
   const existence = view.hypotheses.find((h) => h.axis === "existence") ?? null;
   const severity = view.hypotheses.find((h) => h.axis === "severity") ?? null;
   const problemConfirmed =
     Number(existence?.status === "confirmed") + Number(severity?.status === "confirmed");
 
   const activeSolutions = view.solutionHypotheses.filter((s) => s.status === "active");
+  const inactiveSolutions = view.solutionHypotheses.filter((s) => s.status !== "active");
   const recommended: TabKey | null =
     problemConfirmed < 2 ? "problem" : activeSolutions.length === 0 ? "solution" : null;
 
-  const solutionPanelData: SolutionPanelData[] = view.solutionHypotheses.map((s) => ({
+  const inactivePanelData: SolutionPanelData[] = inactiveSolutions.map((s) => ({
     id: s.id,
     statement: s.statement,
     source: s.source,
@@ -152,13 +155,12 @@ export function ValidationHub({ problemCardId }: { problemCardId: string }) {
         ) : (
           <SolutionTab
             problemCardId={problemCardId}
-            solutionPanel={solutionPanelData}
             activeSolutions={activeSolutions}
+            inactivePanelData={inactivePanelData}
             problemFullyConfirmed={problemConfirmed === 2}
             onChanged={async () => {
               await fetchView();
             }}
-            onJumpToProblem={() => setTab("problem")}
           />
         )}
       </div>
@@ -177,12 +179,9 @@ function ProblemTab({
   bootstrapping: boolean;
   onUpdated: () => Promise<void>;
 }) {
-  const placeholder = bootstrapping ? "에이전트가 처방 생성 중 (~10초)..." : "처방 대기 중";
+  const placeholder = bootstrapping ? "처방 생성 중..." : "처방 대기 중";
   return (
     <div className="space-y-4">
-      <p className="text-xs text-muted">
-        문제 단위 가설 — 솔루션과 무관하게 문제 자체가 존재하고 아픈가를 검증합니다.
-      </p>
       <AxisWorkspace hypothesis={existence} onUpdated={onUpdated} loadingPlaceholder={placeholder} />
       <AxisWorkspace hypothesis={severity} onUpdated={onUpdated} loadingPlaceholder={placeholder} />
     </div>
@@ -191,105 +190,62 @@ function ProblemTab({
 
 function SolutionTab({
   problemCardId,
-  solutionPanel,
   activeSolutions,
+  inactivePanelData,
   problemFullyConfirmed,
   onChanged,
-  onJumpToProblem,
 }: {
   problemCardId: string;
-  solutionPanel: SolutionPanelData[];
   activeSolutions: ApiSolution[];
+  inactivePanelData: SolutionPanelData[];
   problemFullyConfirmed: boolean;
   onChanged: () => Promise<void>;
-  onJumpToProblem: () => void;
 }) {
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-
-  function toggleOne(id: string) {
-    setExpandedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  function expandAll() {
-    setExpandedIds(new Set(activeSolutions.map((s) => s.id)));
-  }
-
-  function collapseAll() {
-    setExpandedIds(new Set());
-  }
-
-  const allExpanded =
-    activeSolutions.length > 0 && activeSolutions.every((s) => expandedIds.has(s.id));
+  const totalSolutions = activeSolutions.length + inactivePanelData.length;
+  const hasOnlyInactive = activeSolutions.length === 0 && inactivePanelData.length > 0;
 
   return (
-    <div className="space-y-6">
-      <section>
-        <div className="mb-2">
-          <h2 className="text-sm font-semibold text-foreground">솔루션 가설</h2>
-          <p className="text-xs text-muted">솔루션 단위 · 여러 가설을 병렬로 활성화해 비교 가능</p>
-        </div>
-        <SolutionPanel
-          problemCardId={problemCardId}
-          solutions={solutionPanel}
-          onChanged={onChanged}
-        />
-      </section>
+    <div className="space-y-5">
+      <SolutionPanel
+        problemCardId={problemCardId}
+        inactiveSolutions={inactivePanelData}
+        onChanged={onChanged}
+      />
 
-      {activeSolutions.length > 0 ? (
-        <section className="space-y-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h2 className="text-sm font-semibold text-foreground">활성 솔루션 검증 ({activeSolutions.length})</h2>
-              <p className="text-xs text-muted">
-                기본은 모두 접힘 — 카드별 상태를 한눈에 보고, 깊이 들여다볼 솔루션만 펼치세요.
-              </p>
-            </div>
-            <button
-              onClick={allExpanded ? collapseAll : expandAll}
-              className="flex items-center gap-1 text-xs rounded-lg border border-border bg-canvas hover:bg-wash px-2.5 py-1 text-tertiary shrink-0"
-            >
-              {allExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-              {allExpanded ? "전체 접기" : "전체 펼치기"}
-            </button>
-          </div>
-          {activeSolutions.map((s) => (
-            <SolutionValidationBlock
-              key={s.id}
-              solution={{
-                id: s.id,
-                statement: s.statement,
-                source: s.source,
-                status: s.status,
-                fit: s.hypotheses.find((h) => h.axis === "fit") ?? null,
-                willingness: s.hypotheses.find((h) => h.axis === "willingness") ?? null,
-                realityCheck: s.realityChecks[0] ?? null,
-                onePager: s.onePager,
-              }}
-              problemConfirmed={problemFullyConfirmed}
-              expanded={expandedIds.has(s.id)}
-              onToggle={() => toggleOne(s.id)}
-              onChanged={onChanged}
-            />
-          ))}
-        </section>
-      ) : (
-        <Card className="text-center py-6">
+      {totalSolutions === 0 && (
+        <Card className="text-center py-8">
+          <Sparkles size={20} className="mx-auto mb-2 text-violet-400" />
           <p className="text-sm text-tertiary">
-            솔루션 가설을 등록·활성화하면 핏·지불 의사 검증과 Reality Check이 여기에 등장합니다.
+            솔루션 가설을 등록하면 핏·지불 의사·1-pager·Reality Check로 검증을 시작할 수 있어요.
           </p>
-          <button
-            onClick={onJumpToProblem}
-            className="mt-3 inline-flex items-center gap-1 text-xs text-violet-600 hover:text-violet-500"
-          >
-            <ArrowUp size={12} /> 문제 검증부터 보기
-          </button>
         </Card>
       )}
+
+      {hasOnlyInactive && (
+        <Card className="text-center py-6">
+          <p className="text-sm text-tertiary">
+            활성 솔루션 없음 — 보류 가설을 활성화하거나 새 가설을 추가하세요.
+          </p>
+        </Card>
+      )}
+
+      {activeSolutions.map((s) => (
+        <SolutionValidationBlock
+          key={s.id}
+          solution={{
+            id: s.id,
+            statement: s.statement,
+            source: s.source,
+            status: s.status,
+            fit: s.hypotheses.find((h) => h.axis === "fit") ?? null,
+            willingness: s.hypotheses.find((h) => h.axis === "willingness") ?? null,
+            realityCheck: s.realityChecks[0] ?? null,
+            onePager: s.onePager,
+          }}
+          problemConfirmed={problemFullyConfirmed}
+          onChanged={onChanged}
+        />
+      ))}
     </div>
   );
 }

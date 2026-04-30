@@ -12,25 +12,28 @@ import {
   Zap,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Markdown } from "@/components/ui/markdown";
 import { AxisWorkspace, type AxisWorkspaceData } from "@/components/validation/AxisWorkspace";
 import { OnePagerSection, type OnePagerData } from "@/components/validation/OnePagerSection";
 import {
-  HYPOTHESIS_STATUS_LABELS,
-  HYPOTHESIS_STATUS_VARIANTS,
-  parsePrescribedMethods,
   SOLUTION_STATUS_LABELS,
   SOLUTION_STATUS_VARIANTS,
   type HypothesisStatus,
   type SolutionStatus,
 } from "@/lib/validation-labels";
 
+// Hypothesis row enriched with updatedAt so we can pick the most-recently-
+// edited tool as the default tab. Optional because the field flows through
+// the API as a string but isn't part of AxisWorkspaceData proper.
+type AxisData = AxisWorkspaceData & { updatedAt?: string };
+
 export type SolutionBlockData = {
   id: string;
   statement: string;
   source: string;
   status: string;
-  fit: AxisWorkspaceData | null;
-  willingness: AxisWorkspaceData | null;
+  fit: AxisData | null;
+  willingness: AxisData | null;
   realityCheck: {
     id: string;
     coldInvestor: string;
@@ -42,28 +45,81 @@ export type SolutionBlockData = {
   onePager: OnePagerData | null;
 };
 
+type TabKey = "fit" | "willingness" | "onepager" | "reality";
+
+const TAB_LABELS: Record<TabKey, string> = {
+  fit: "핏",
+  willingness: "지불",
+  onepager: "1-pager",
+  reality: "RC",
+};
+
+const HYP_STATUS_KO: Record<HypothesisStatus, string> = {
+  not_started: "시작 전",
+  in_progress: "진행 중",
+  broken: "깨짐",
+  confirmed: "확인됨",
+};
+
+// Tab dot color reflects the underlying tool's status. The dot is the
+// status indicator — there is no separate status row above the tabs.
+function tabDotClass(tab: TabKey, solution: SolutionBlockData): string {
+  if (tab === "fit" || tab === "willingness") {
+    const s = (tab === "fit" ? solution.fit?.status : solution.willingness?.status) ?? "not_started";
+    if (s === "confirmed") return "bg-green-500";
+    if (s === "broken") return "bg-red-500";
+    if (s === "in_progress") return "bg-amber-500";
+    return "bg-canvas border border-border-strong";
+  }
+  if (tab === "onepager") {
+    return solution.onePager ? "bg-violet-500" : "bg-canvas border border-border-strong";
+  }
+  return solution.realityCheck ? "bg-blue-500" : "bg-canvas border border-border-strong";
+}
+
+function tabAriaLabel(tab: TabKey, solution: SolutionBlockData): string {
+  const label = TAB_LABELS[tab];
+  if (tab === "fit" || tab === "willingness") {
+    const s = ((tab === "fit" ? solution.fit?.status : solution.willingness?.status) ??
+      "not_started") as HypothesisStatus;
+    return `${label}: ${HYP_STATUS_KO[s]}`;
+  }
+  if (tab === "onepager") return `1-pager: ${solution.onePager ? "초안 있음" : "미생성"}`;
+  return `Reality Check: ${solution.realityCheck ? "결과 있음" : "미실행"}`;
+}
+
+// Default tab heuristic: pick whichever tool was most recently touched
+// (status PATCH, findings save, 1-pager edit/draft, RC run). Falls back to
+// "fit" when nothing has activity yet. Evaluated once on mount via lazy
+// init; later state updates don't reset the chosen tab.
+function defaultTab(solution: SolutionBlockData): TabKey {
+  const entries: { key: TabKey; ts: number }[] = [];
+  if (solution.fit?.updatedAt) entries.push({ key: "fit", ts: Date.parse(solution.fit.updatedAt) });
+  if (solution.willingness?.updatedAt)
+    entries.push({ key: "willingness", ts: Date.parse(solution.willingness.updatedAt) });
+  if (solution.onePager) {
+    const ts = solution.onePager.lastEditedAt ?? solution.onePager.draftGeneratedAt;
+    if (ts) entries.push({ key: "onepager", ts: Date.parse(ts) });
+  }
+  if (solution.realityCheck)
+    entries.push({ key: "reality", ts: Date.parse(solution.realityCheck.createdAt) });
+  entries.sort((a, b) => b.ts - a.ts);
+  return entries[0]?.key ?? "fit";
+}
+
 export function SolutionValidationBlock({
   solution,
   problemConfirmed,
   onChanged,
-  expanded: controlledExpanded,
-  onToggle: controlledToggle,
 }: {
   solution: SolutionBlockData;
   problemConfirmed: boolean;
   onChanged: () => void | Promise<void>;
-  expanded?: boolean;
-  onToggle?: () => void;
 }) {
-  const [internalExpanded, setInternalExpanded] = useState(false);
-  const expanded = controlledExpanded ?? internalExpanded;
-  const toggle =
-    controlledToggle ?? (() => setInternalExpanded((prev) => !prev));
-
+  const [tab, setTab] = useState<TabKey>(() => defaultTab(solution));
   const [shelving, setShelving] = useState(false);
 
-  async function shelve(e: React.MouseEvent) {
-    e.stopPropagation();
+  async function shelve() {
     setShelving(true);
     await fetch(`/api/solution-hypotheses/${solution.id}`, {
       method: "PATCH",
@@ -76,19 +132,12 @@ export function SolutionValidationBlock({
 
   const status = solution.status as SolutionStatus;
   const isAi = solution.source === "ai_suggested";
-  const fitStatus = (solution.fit?.status ?? "not_started") as HypothesisStatus;
-  const willingnessStatus = (solution.willingness?.status ?? "not_started") as HypothesisStatus;
-  const fitMethodCount = solution.fit ? parsePrescribedMethods(solution.fit.prescribedMethods).length : 0;
-  const willingnessMethodCount = solution.willingness
-    ? parsePrescribedMethods(solution.willingness.prescribedMethods).length
-    : 0;
-  const hasRC = solution.realityCheck !== null;
-  const hasOnePager = solution.onePager !== null;
+  const tabKeys = Object.keys(TAB_LABELS) as TabKey[];
 
   return (
     <div className="rounded-2xl border border-violet-200 bg-violet-50/30 overflow-hidden">
-      {/* Compact header — always visible */}
-      <div className="p-4 md:p-5 space-y-3">
+      {/* Header — statement + 보류 */}
+      <div className="p-4 md:p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
@@ -99,112 +148,92 @@ export function SolutionValidationBlock({
                 </span>
               )}
             </div>
-            <p className="text-sm text-body whitespace-pre-wrap line-clamp-2">{solution.statement}</p>
+            <p className="text-sm text-body whitespace-pre-wrap">{solution.statement}</p>
           </div>
           {solution.status === "active" && (
             <button
               onClick={shelve}
               disabled={shelving}
               className="text-xs rounded-lg border border-border bg-canvas hover:bg-wash px-2.5 py-1 text-tertiary disabled:opacity-40 shrink-0"
+              title="이 솔루션을 보류"
             >
               {shelving ? <Loader2 size={12} className="animate-spin" /> : "보류"}
             </button>
           )}
         </div>
 
-        {/* Compact axis summary rows */}
-        <div className="space-y-1.5 pt-2 border-t border-violet-200/70">
-          <SummaryRow
-            label="핏"
-            status={fitStatus}
-            extra={fitMethodCount > 0 ? `메서드 ${fitMethodCount}개` : "처방 대기"}
-          />
-          <SummaryRow
-            label="지불 의사"
-            status={willingnessStatus}
-            extra={willingnessMethodCount > 0 ? `메서드 ${willingnessMethodCount}개` : "처방 대기"}
-          />
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-tertiary">1-pager</span>
-            <span className="text-subtle">
-              {hasOnePager
-                ? "초안 있음"
-                : problemConfirmed && solution.status === "active"
-                  ? "생성 가능"
-                  : "문제 검증 후"}
-            </span>
-          </div>
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-tertiary">Reality Check</span>
-            <span className="text-subtle">{hasRC ? "최근 결과 있음" : "미실행"}</span>
-          </div>
-        </div>
-
         {solution.status === "broken" && (
-          <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+          <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 mt-3">
             <AlertTriangle size={12} className="text-red-600 mt-0.5 shrink-0" />
             <p className="text-xs text-red-700">검증으로 깨짐 — 새 솔루션 가설을 시도하세요</p>
           </div>
         )}
-
-        <button
-          onClick={toggle}
-          className="w-full flex items-center justify-center gap-1 text-xs text-violet-600 hover:text-violet-500 font-medium pt-1"
-        >
-          {expanded ? (
-            <>
-              <ChevronUp size={12} /> 접기
-            </>
-          ) : (
-            <>
-              <ChevronDown size={12} /> 펼쳐서 검증 처방 보기
-            </>
-          )}
-        </button>
       </div>
 
-      {/* Expanded content */}
-      {expanded && (
-        <div className="border-t border-violet-200/70 bg-surface p-4 md:p-5 space-y-4">
+      {/* 4-tab segmented control. Tab dot = tool status. grid-cols-4 keeps
+          equal width on every viewport (375px+) without overflow risk. */}
+      <div className="border-t border-violet-200/70 bg-violet-50/40">
+        <div
+          role="tablist"
+          aria-label="솔루션 도구"
+          className="grid grid-cols-4"
+        >
+          {tabKeys.map((k) => {
+            const active = tab === k;
+            return (
+              <button
+                key={k}
+                role="tab"
+                aria-selected={active}
+                aria-label={tabAriaLabel(k, solution)}
+                onClick={() => setTab(k)}
+                className={`flex items-center justify-center gap-1.5 py-3 px-2 text-xs font-medium border-b-2 transition-colors min-h-[44px] ${
+                  active
+                    ? "border-violet-600 text-violet-700 bg-surface"
+                    : "border-transparent text-tertiary hover:text-secondary"
+                }`}
+              >
+                <span
+                  aria-hidden
+                  className={`inline-block w-2 h-2 rounded-full shrink-0 ${tabDotClass(k, solution)}`}
+                />
+                <span className="truncate">{TAB_LABELS[k]}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Active tab content */}
+      <div className="bg-surface p-4 md:p-5">
+        {tab === "fit" && (
           <AxisWorkspace
             hypothesis={solution.fit}
             onUpdated={onChanged}
             loadingPlaceholder="처방 생성 중..."
+            hideAxisHeader
           />
+        )}
+        {tab === "willingness" && (
           <AxisWorkspace
             hypothesis={solution.willingness}
             onUpdated={onChanged}
             loadingPlaceholder="처방 생성 중..."
+            hideAxisHeader
           />
+        )}
+        {tab === "onepager" && (
           <OnePagerSection
             solutionHypothesisId={solution.id}
             triggerMet={problemConfirmed && solution.status === "active"}
             onePager={solution.onePager}
             onChanged={onChanged}
           />
+        )}
+        {tab === "reality" && (
           <RealityCheckSection solution={solution} onChanged={onChanged} />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function SummaryRow({
-  label,
-  status,
-  extra,
-}: {
-  label: string;
-  status: HypothesisStatus;
-  extra: string;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-2 text-xs">
-      <div className="flex items-center gap-2 min-w-0">
-        <span className="text-tertiary w-14 shrink-0">{label}</span>
-        <Badge variant={HYPOTHESIS_STATUS_VARIANTS[status]}>{HYPOTHESIS_STATUS_LABELS[status]}</Badge>
+        )}
       </div>
-      <span className="text-subtle truncate">{extra}</span>
     </div>
   );
 }
@@ -234,11 +263,12 @@ function RealityCheckSection({
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-2">
-        <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-foreground">Reality Check</h3>
-          <p className="text-xs text-muted">이 솔루션 단위 챌린지 + 모더레이터 종합</p>
-        </div>
+      {/* Action row — short description + run button. Wraps on narrow widths. */}
+      <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
+        <p className="text-xs text-muted flex-1 min-w-[12rem]">
+          냉정한 투자자·솔직한 친구·소크라테스 3 페르소나가 솔루션을 비판적으로 검토하고
+          모더레이터가 종합합니다.
+        </p>
         <button
           onClick={runRealityCheck}
           disabled={running}
@@ -259,7 +289,7 @@ function RealityCheckSection({
               <Scale size={12} />
               <p className="text-xs font-medium">중재자 종합</p>
             </div>
-            <p className="text-sm text-body whitespace-pre-wrap">{rc.moderatorSummary}</p>
+            <Markdown content={rc.moderatorSummary} className="text-body" />
           </div>
 
           {/* Personas — toggleable */}
@@ -283,7 +313,7 @@ function RealityCheckSection({
                     <Icon size={12} />
                     <p className="text-xs font-medium">{label}</p>
                   </div>
-                  <p className="text-xs text-secondary whitespace-pre-wrap">{content}</p>
+                  <Markdown content={content} className="text-secondary" />
                 </div>
               ))}
             </div>
