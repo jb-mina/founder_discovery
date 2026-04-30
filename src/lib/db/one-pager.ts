@@ -50,3 +50,27 @@ export async function upsertOnePagerSections(
     },
   });
 }
+
+// Overwrite all 10 sections from an AI-generated draft. Sets draftGeneratedAt
+// (audit trail) and clears lastEditedAt — the next user edit will set it.
+// Used by POST /api/one-pagers/[id]/draft (Phase 2). Confirmation that
+// existing content will be replaced is the caller's (UI) responsibility.
+export async function upsertOnePagerDraft(
+  solutionHypothesisId: string,
+  draft: Required<Record<OnePagerSection, string>>,
+): Promise<OnePager> {
+  const now = new Date();
+  return prisma.onePager.upsert({
+    where: { solutionHypothesisId },
+    create: {
+      solutionHypothesisId,
+      ...draft,
+      draftGeneratedAt: now,
+    },
+    update: {
+      ...draft,
+      draftGeneratedAt: now,
+      lastEditedAt: null,
+    },
+  });
+}
