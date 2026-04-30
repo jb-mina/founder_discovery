@@ -15,7 +15,7 @@ async function callPersona(persona: PersonaKey, context: string): Promise<string
   const p = PERSONAS[persona];
   const response = await client.messages.create({
     model: "claude-sonnet-4-6",
-    max_tokens: 512,
+    max_tokens: 2048,
     system: p.system,
     messages: [{ role: "user", content: context }],
   });
@@ -40,7 +40,7 @@ export async function runRealityCheck(input: {
   // Moderator runs after, with full visibility.
   const moderatorResponse = await client.messages.create({
     model: "claude-sonnet-4-6",
-    max_tokens: 512,
+    max_tokens: 2048,
     system: MODERATOR_SYSTEM,
     messages: [
       {
