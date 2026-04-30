@@ -1,36 +1,23 @@
 export const dynamic = "force-dynamic";
 
 import { getDashboardData } from "@/lib/db/dashboard";
-import { NorthStarBar, ratioBucket } from "@/components/dashboard/NorthStarBar";
-import { NextActionCard } from "@/components/dashboard/NextActionCard";
+import { NorthStarBar, focusProgressBucket } from "@/components/dashboard/NorthStarBar";
+import { TodayCard } from "@/components/dashboard/TodayCard";
 import { ActiveSolutionList } from "@/components/dashboard/ActiveSolutionList";
-import { TrapAlerts } from "@/components/dashboard/TrapAlerts";
-import { AccumulatedLearningStrip } from "@/components/dashboard/AccumulatedLearningStrip";
-import { LoopFlow } from "@/components/dashboard/LoopFlow";
 import { TopFitCandidates } from "@/components/dashboard/TopFitCandidates";
 import { DashboardViewTracker } from "@/components/dashboard/DashboardViewTracker";
 
 export default async function DashboardPage() {
   const data = await getDashboardData();
 
-  const problemRatio =
-    data.northStar.problemTotal === 0
-      ? 0
-      : data.northStar.problemConfirmed / data.northStar.problemTotal;
-  const solutionRatio =
-    data.northStar.solutionTotal === 0
-      ? 0
-      : data.northStar.solutionConfirmed / data.northStar.solutionTotal;
-
   return (
     <div className="p-4 md:p-6 space-y-6">
       <DashboardViewTracker
-        hasActiveSolution={data.activeSolutions.length > 0}
-        activeSolutionCount={data.activeSolutions.length}
+        hasFocus={data.focus !== null}
+        focusProgress={focusProgressBucket(data.focus)}
+        activeSolutionCount={data.activeSolutions.total}
         trapCount={data.traps.length}
-        northStarProblemBucket={ratioBucket(problemRatio)}
-        northStarSolutionBucket={ratioBucket(solutionRatio)}
-        currentStage={data.loop.currentStage}
+        eligibleCount={data.topFit.length}
       />
 
       <div>
@@ -40,22 +27,17 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      {/* Zone 1 — Confidence (북극성) */}
-      <NorthStarBar data={data.northStar} />
+      {/* Today — 오늘 한 가지 액션 (트랩 또는 다음 액션) */}
+      <TodayCard nextAction={data.nextAction} traps={data.traps} />
 
-      {/* Zone 2 — Now (오늘의 다음 액션) */}
-      <section className="space-y-4">
-        <NextActionCard action={data.nextAction} />
-        <TrapAlerts signals={data.traps} />
-        <ActiveSolutionList rows={data.activeSolutions} />
-      </section>
+      {/* Active Work — 작업대 (top 3 + 더 보기) */}
+      <ActiveSolutionList data={data.activeSolutions} />
 
-      {/* Zone 3 — Loop (누적 · 순환) */}
-      <section className="space-y-4">
-        <LoopFlow data={data.loop} />
-        <AccumulatedLearningStrip data={data.accumulated} />
-        <TopFitCandidates rows={data.topFit} />
-      </section>
+      {/* Confidence — 북극성 + 누적 학습 */}
+      <NorthStarBar focus={data.focus} accumulated={data.accumulated} />
+
+      {/* Pipeline — 다음 검증 후보 */}
+      <TopFitCandidates rows={data.topFit} />
     </div>
   );
 }

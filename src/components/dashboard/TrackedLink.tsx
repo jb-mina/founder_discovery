@@ -5,35 +5,25 @@ import type { ReactNode } from "react";
 import { track } from "@/lib/posthog/events";
 
 type DashboardWidget =
-  | "north_star_problem"
-  | "north_star_solution"
+  | "north_star_focus"
   | "next_action"
   | "active_solution"
+  | "active_solution_more"
   | "trap_alert"
-  | "loop_stage"
   | "top_fit";
 
 type DashboardTrapKind = "trap_solution_drift" | "trap_empathy_vs_payment";
-
-type LoopStage =
-  | "self_map"
-  | "problems"
-  | "fit"
-  | "problem_validation"
-  | "solution_validation";
 
 export function TrackedLink({
   href,
   widget,
   trapKind,
-  loopStage,
   className,
   children,
 }: {
   href: string;
   widget: DashboardWidget;
   trapKind?: DashboardTrapKind;
-  loopStage?: LoopStage;
   className?: string;
   children: ReactNode;
 }) {
@@ -48,7 +38,6 @@ export function TrackedLink({
             widget,
             target_route: href,
             ...(trapKind ? { trap_kind: trapKind } : {}),
-            ...(loopStage ? { loop_stage: loopStage } : {}),
           },
         });
       }}

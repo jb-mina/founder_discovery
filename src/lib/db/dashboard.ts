@@ -6,7 +6,6 @@ import {
   listProblemsInValidation,
   progressDots,
   type ListStatus,
-  type ListStatusKey,
   type ProblemValidationListItem,
 } from "@/lib/db/validation";
 import type { HypothesisAxis } from "@/lib/agents/validation-designer/schema";
@@ -16,92 +15,74 @@ import type { HypothesisAxis } from "@/lib/agents/validation-designer/schema";
 const TRAP_EMPATHY_STALE_DAYS = 7;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-// ---------- Zone 1 — Confidence ----------
+// ---------- North star focus ----------
 
-export type NorthStarSnapshot = {
-  problemConfirmed: number;
-  problemTotal: number;
-  latestProblemTitle: string | null;
-  solutionConfirmed: number;
-  solutionTotal: number;
-  latestSolutionStatement: string | null;
-};
+// The single "current bet" — most recently active solution. Replaces the old
+// aggregate "X confirmed of Y total" framing because that conflates separate
+// problems and obscures progress on the one the founder is actually pushing on.
+export type NorthStarFocus = {
+  problemCardId: string;
+  problemTitle: string;
+  solutionHypothesisId: string;
+  solutionStatement: string;
+  steps: { axis: HypothesisAxis; status: string }[];
+  confirmed: number;
+  total: number;
+  updatedAt: Date;
+} | null;
 
-export async function getNorthStar(
+export async function getNorthStarFocus(
   problems?: ProblemValidationListItem[],
-): Promise<NorthStarSnapshot> {
+): Promise<NorthStarFocus> {
   const list = problems ?? (await listProblemsInValidation());
 
-  const withProblemAxes = list.filter((p) =>
-    p.hypotheses.some((h) => h.axis === "existence" || h.axis === "severity"),
+  const candidates: {
+    p: ProblemValidationListItem;
+    sol: ProblemValidationListItem["solutionHypotheses"][number];
+  }[] = [];
+  for (const p of list) {
+    const active = p.solutionHypotheses.find((s) => s.status === "active");
+    if (active) candidates.push({ p, sol: active });
+  }
+  if (candidates.length === 0) return null;
+
+  candidates.sort(
+    (a, b) => b.sol.updatedAt.getTime() - a.sol.updatedAt.getTime(),
   );
-  const problemConfirmed = withProblemAxes.filter((p) => {
-    const e = p.hypotheses.find((h) => h.axis === "existence");
-    const s = p.hypotheses.find((h) => h.axis === "severity");
-    return e?.status === "confirmed" && s?.status === "confirmed";
-  });
-
-  const latestProblem = [...problemConfirmed].sort(
-    (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime(),
-  )[0];
-
-  const allSolutions = await prisma.solutionHypothesis.findMany({
-    where: { status: { not: "shelved" } },
-    orderBy: { updatedAt: "desc" },
-    select: { status: true, statement: true, updatedAt: true },
-  });
-  const confirmedSols = allSolutions.filter((s) => s.status === "confirmed");
+  const { p, sol } = candidates[0];
+  const steps = axisStatusFor(p);
+  const { confirmed, total } = progressDots(p);
 
   return {
-    problemConfirmed: problemConfirmed.length,
-    problemTotal: withProblemAxes.length,
-    latestProblemTitle: latestProblem?.title ?? null,
-    solutionConfirmed: confirmedSols.length,
-    solutionTotal: allSolutions.length,
-    latestSolutionStatement: confirmedSols[0]?.statement ?? null,
+    problemCardId: p.id,
+    problemTitle: p.title,
+    solutionHypothesisId: sol.id,
+    solutionStatement: sol.statement,
+    steps,
+    confirmed,
+    total,
+    updatedAt: sol.updatedAt,
   };
 }
 
+// Aggregate counts across all hypotheses — used as small sub-stats under the
+// north star focus card. Tracks "how much have I learned overall."
 export type AccumulatedLearning = {
   confirmedAxes: number;
   brokenAxes: number;
   inProgressAxes: number;
-  realityCheckCount: number;
-  shelvedSolutions: number;
-  confirmedSolutions: number;
-  brokenSolutions: number;
 };
 
 export async function getAccumulatedLearning(): Promise<AccumulatedLearning> {
-  const [
-    confirmedAxes,
-    brokenAxes,
-    inProgressAxes,
-    realityCheckCount,
-    shelvedSolutions,
-    confirmedSolutions,
-    brokenSolutions,
-  ] = await Promise.all([
+  const [confirmedAxes, brokenAxes, inProgressAxes] = await Promise.all([
     prisma.hypothesis.count({ where: { status: "confirmed" } }),
     prisma.hypothesis.count({ where: { status: "broken" } }),
     prisma.hypothesis.count({ where: { status: "in_progress" } }),
-    prisma.realityCheck.count(),
-    prisma.solutionHypothesis.count({ where: { status: "shelved" } }),
-    prisma.solutionHypothesis.count({ where: { status: "confirmed" } }),
-    prisma.solutionHypothesis.count({ where: { status: "broken" } }),
   ]);
-  return {
-    confirmedAxes,
-    brokenAxes,
-    inProgressAxes,
-    realityCheckCount,
-    shelvedSolutions,
-    confirmedSolutions,
-    brokenSolutions,
-  };
+  return { confirmedAxes, brokenAxes, inProgressAxes };
 }
 
-// ---------- Zone 2 — Now ----------
+// ---------- Today (next action + traps) ----------
 
 export type NextActionPriority =
   | "in_progress_problem"
@@ -218,48 +199,6 @@ export async function getNextAction(
   return null;
 }
 
-export type ActiveSolutionRow = {
-  problemCardId: string;
-  problemTitle: string;
-  solutionHypothesisId: string;
-  solutionStatement: string;
-  steps: { axis: HypothesisAxis; status: string }[];
-  confirmed: number;
-  total: number;
-  nextStep: string;
-  updatedAt: Date;
-};
-
-export async function getActiveSolutionRows(
-  limit = 5,
-  problems?: ProblemValidationListItem[],
-): Promise<ActiveSolutionRow[]> {
-  const list = problems ?? (await listProblemsInValidation());
-
-  const rows: ActiveSolutionRow[] = [];
-  for (const p of list) {
-    const active = p.solutionHypotheses.find((s) => s.status === "active");
-    if (!active) continue;
-    const steps = axisStatusFor(p);
-    const { confirmed, total } = progressDots(p);
-    const status = deriveListStatus(p);
-    rows.push({
-      problemCardId: p.id,
-      problemTitle: p.title,
-      solutionHypothesisId: active.id,
-      solutionStatement: active.statement,
-      steps,
-      confirmed,
-      total,
-      nextStep: status.nextStep,
-      updatedAt: active.updatedAt,
-    });
-  }
-  return rows
-    .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
-    .slice(0, limit);
-}
-
 export type TrapKind = "trap_solution_drift" | "trap_empathy_vs_payment";
 
 export type TrapSignal =
@@ -335,156 +274,110 @@ export async function getTrapSignals(
   return out;
 }
 
-// ---------- Zone 3 — Loop ----------
+// ---------- Active solution workbench ----------
 
-export type LoopStage =
-  | "self_map"
-  | "problems"
-  | "fit"
-  | "problem_validation"
-  | "solution_validation";
-
-export type LoopFlow = {
-  currentStage: LoopStage;
-  selfMapCount: number;
-  problemCount: number;
-  fitCount: number;
-  problemValidationCount: number;
-  solutionValidationCount: number;
+export type ActiveSolutionRow = {
+  problemCardId: string;
+  problemTitle: string;
+  solutionHypothesisId: string;
+  solutionStatement: string;
+  steps: { axis: HypothesisAxis; status: string }[];
+  confirmed: number;
+  total: number;
+  nextStep: string;
+  updatedAt: Date;
 };
 
-export async function getLoopFlow(
+export type ActiveSolutionList = {
+  rows: ActiveSolutionRow[];
+  total: number;
+};
+
+export async function getActiveSolutionList(
+  limit = 3,
   problems?: ProblemValidationListItem[],
-): Promise<LoopFlow> {
-  const [
-    selfMapCount,
-    problemCount,
-    fitCount,
-    latestSelfMap,
-    latestProblem,
-    latestFit,
-    latestProblemAxis,
-    latestSolutionAxis,
-  ] = await Promise.all([
-    prisma.selfMapEntry.count(),
-    prisma.problemCard.count(),
-    prisma.fitEvaluation.count(),
-    prisma.selfMapEntry.findFirst({ orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
-    prisma.problemCard.findFirst({ orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
-    prisma.fitEvaluation.findFirst({ orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
-    prisma.hypothesis.findFirst({
-      where: { problemCardId: { not: null } },
-      orderBy: { updatedAt: "desc" },
-      select: { updatedAt: true },
-    }),
-    prisma.hypothesis.findFirst({
-      where: { solutionHypothesisId: { not: null } },
-      orderBy: { updatedAt: "desc" },
-      select: { updatedAt: true },
-    }),
-  ]);
-
+): Promise<ActiveSolutionList> {
   const list = problems ?? (await listProblemsInValidation());
-  let problemValidationCount = 0;
-  let solutionValidationCount = 0;
+
+  const allRows: ActiveSolutionRow[] = [];
   for (const p of list) {
-    if (p.hypotheses.some((h) => h.axis === "existence" || h.axis === "severity")) {
-      problemValidationCount += 1;
-    }
-    if (p.solutionHypotheses.length > 0) {
-      solutionValidationCount += 1;
-    }
+    const active = p.solutionHypotheses.find((s) => s.status === "active");
+    if (!active) continue;
+    const steps = axisStatusFor(p);
+    const { confirmed, total } = progressDots(p);
+    const status = deriveListStatus(p);
+    allRows.push({
+      problemCardId: p.id,
+      problemTitle: p.title,
+      solutionHypothesisId: active.id,
+      solutionStatement: active.statement,
+      steps,
+      confirmed,
+      total,
+      nextStep: status.nextStep,
+      updatedAt: active.updatedAt,
+    });
   }
-
-  const candidates: { stage: LoopStage; ts: number }[] = [
-    { stage: "self_map", ts: latestSelfMap?.updatedAt.getTime() ?? 0 },
-    { stage: "problems", ts: latestProblem?.updatedAt.getTime() ?? 0 },
-    { stage: "fit", ts: latestFit?.updatedAt.getTime() ?? 0 },
-    { stage: "problem_validation", ts: latestProblemAxis?.updatedAt.getTime() ?? 0 },
-    { stage: "solution_validation", ts: latestSolutionAxis?.updatedAt.getTime() ?? 0 },
-  ];
-  const winner = candidates.reduce((a, b) => (b.ts > a.ts ? b : a));
-  const currentStage: LoopStage = winner.ts === 0 ? "self_map" : winner.stage;
-
-  return {
-    currentStage,
-    selfMapCount,
-    problemCount,
-    fitCount,
-    problemValidationCount,
-    solutionValidationCount,
-  };
+  allRows.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+  return { rows: allRows.slice(0, limit), total: allRows.length };
 }
+
+// ---------- Pipeline (eligible-only top fit) ----------
 
 export type TopFitCandidate = {
   problemCardId: string;
   title: string;
   who: string;
   totalScore: number;
-  inValidation: boolean;
-  status: ListStatus | null;
 };
 
+// Fit-evaluated problems that have NOT yet started validation. Anything already
+// in validation is shown in the active solution workbench — surfacing it here
+// would just be duplicate noise.
 export async function getTopFitCandidates(
-  limit = 5,
+  limit = 3,
   problems?: ProblemValidationListItem[],
 ): Promise<TopFitCandidate[]> {
+  const list = problems ?? (await listProblemsInValidation());
+  const inValidationIds = list.map((p) => p.id);
   const rows = await prisma.fitEvaluation.findMany({
+    where:
+      inValidationIds.length > 0
+        ? { problemCardId: { notIn: inValidationIds } }
+        : undefined,
     include: { problemCard: true },
     orderBy: [{ totalScore: "desc" }, { updatedAt: "desc" }],
     take: limit,
   });
-  const list = problems ?? (await listProblemsInValidation());
-  const inValidationMap = new Map<string, ProblemValidationListItem>();
-  for (const p of list) inValidationMap.set(p.id, p);
-
-  return rows.map((row) => {
-    const inVal = inValidationMap.get(row.problemCardId);
-    return {
-      problemCardId: row.problemCardId,
-      title: row.problemCard.title,
-      who: row.problemCard.who,
-      totalScore: row.totalScore,
-      inValidation: Boolean(inVal),
-      status: inVal ? deriveListStatus(inVal) : null,
-    };
-  });
+  return rows.map((row) => ({
+    problemCardId: row.problemCardId,
+    title: row.problemCard.title,
+    who: row.problemCard.who,
+    totalScore: row.totalScore,
+  }));
 }
 
 // ---------- Aggregator ----------
 
 export type DashboardData = {
-  northStar: NorthStarSnapshot;
+  focus: NorthStarFocus;
   accumulated: AccumulatedLearning;
   nextAction: NextAction;
-  activeSolutions: ActiveSolutionRow[];
+  activeSolutions: ActiveSolutionList;
   traps: TrapSignal[];
-  loop: LoopFlow;
   topFit: TopFitCandidate[];
 };
 
 export async function getDashboardData(): Promise<DashboardData> {
   const problems = await listProblemsInValidation();
-  const [
-    northStar,
-    accumulated,
-    nextAction,
-    activeSolutions,
-    traps,
-    loop,
-    topFit,
-  ] = await Promise.all([
-    getNorthStar(problems),
-    getAccumulatedLearning(),
-    getNextAction(problems),
-    getActiveSolutionRows(5, problems),
-    getTrapSignals(problems),
-    getLoopFlow(problems),
-    getTopFitCandidates(5, problems),
-  ]);
-  return { northStar, accumulated, nextAction, activeSolutions, traps, loop, topFit };
+  const [focus, accumulated, nextAction, activeSolutions, traps, topFit] =
+    await Promise.all([
+      getNorthStarFocus(problems),
+      getAccumulatedLearning(),
+      getNextAction(problems),
+      getActiveSolutionList(3, problems),
+      getTrapSignals(problems),
+      getTopFitCandidates(3, problems),
+    ]);
+  return { focus, accumulated, nextAction, activeSolutions, traps, topFit };
 }
-
-// ---------- Re-exports for component convenience ----------
-
-export type { ListStatusKey };

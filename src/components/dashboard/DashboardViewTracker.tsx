@@ -3,33 +3,24 @@
 import { useEffect } from "react";
 import { track } from "@/lib/posthog/events";
 
-type RatioBucket = "0" | "lt50" | "gte50";
-
-type LoopStage =
-  | "self_map"
-  | "problems"
-  | "fit"
-  | "problem_validation"
-  | "solution_validation";
+type FocusProgressBucket = "0" | "1" | "2" | "3" | "4";
 
 export function DashboardViewTracker(props: {
-  hasActiveSolution: boolean;
+  hasFocus: boolean;
+  focusProgress?: FocusProgressBucket;
   activeSolutionCount: number;
   trapCount: number;
-  northStarProblemBucket: RatioBucket;
-  northStarSolutionBucket: RatioBucket;
-  currentStage: LoopStage;
+  eligibleCount: number;
 }) {
   useEffect(() => {
     track({
       event: "dashboard_viewed",
       props: {
-        has_active_solution: props.hasActiveSolution,
+        has_focus: props.hasFocus,
+        ...(props.focusProgress ? { focus_progress: props.focusProgress } : {}),
         active_solution_count: props.activeSolutionCount,
         trap_count: props.trapCount,
-        north_star_problem_bucket: props.northStarProblemBucket,
-        north_star_solution_bucket: props.northStarSolutionBucket,
-        current_stage: props.currentStage,
+        eligible_count: props.eligibleCount,
       },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps

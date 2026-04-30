@@ -2,7 +2,7 @@ import { ArrowRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StepperBar } from "@/components/validation/StepperBar";
-import type { ActiveSolutionRow } from "@/lib/db/dashboard";
+import type { ActiveSolutionList as ActiveSolutionListData } from "@/lib/db/dashboard";
 import { TrackedLink } from "./TrackedLink";
 
 function timeAgo(date: Date): string {
@@ -16,16 +16,29 @@ function timeAgo(date: Date): string {
   return `${d}일 전`;
 }
 
-export function ActiveSolutionList({ rows }: { rows: ActiveSolutionRow[] }) {
-  if (rows.length === 0) return null;
+export function ActiveSolutionList({ data }: { data: ActiveSolutionListData }) {
+  if (data.rows.length === 0) return null;
+  const remaining = data.total - data.rows.length;
 
   return (
     <div>
-      <h2 className="text-h2 font-semibold text-foreground mb-3">
-        진행 중인 솔루션 <span className="text-subtle font-normal">({rows.length})</span>
-      </h2>
+      <div className="flex items-baseline justify-between mb-3">
+        <h2 className="text-h2 font-semibold text-foreground">
+          진행 중인 솔루션{" "}
+          <span className="text-subtle font-normal">({data.total})</span>
+        </h2>
+        {remaining > 0 && (
+          <TrackedLink
+            href="/validation"
+            widget="active_solution_more"
+            className="text-xs text-violet-700 hover:text-violet-600 font-medium flex items-center gap-0.5"
+          >
+            +{remaining}개 더 <ArrowRight size={11} />
+          </TrackedLink>
+        )}
+      </div>
       <div className="space-y-2.5">
-        {rows.map((row) => (
+        {data.rows.map((row) => (
           <TrackedLink
             key={row.solutionHypothesisId}
             href={`/validation/${row.problemCardId}`}
