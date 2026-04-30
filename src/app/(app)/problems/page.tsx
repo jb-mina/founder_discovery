@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Plus, Search, Crosshair, Loader2, X, ExternalLink, Telescope, Star, Sparkles, ArrowRight, Trash2 } from "lucide-react";
+import { Plus, Search, Crosshair, Loader2, X, ExternalLink, Telescope, Star, Sparkles, ArrowRight, Trash2, Pencil } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -106,67 +106,124 @@ function FitEvaluateModal({
   );
 }
 
-function AddCardModal({ onClose, onSave }: { onClose: () => void; onSave: (data: Partial<ProblemCard>) => void }) {
-  const [form, setForm] = useState({
-    title: "", who: "", when: "", why: "", painPoints: "",
-    alternatives: "", source: "manual", sourceUrl: "", tags: "", stage: "seed", category: "",
+type CardFormValues = {
+  title: string;
+  who: string;
+  when: string;
+  why: string;
+  painPoints: string;
+  alternatives: string;
+  source: string;
+  sourceUrl: string;
+  tags: string;
+  stage: string;
+  category: string;
+};
+
+function CardFormModal({
+  mode,
+  initial,
+  onClose,
+  onSave,
+}: {
+  mode: "add" | "edit";
+  initial?: ProblemCard;
+  onClose: () => void;
+  onSave: (data: CardFormValues) => void;
+}) {
+  const [form, setForm] = useState<CardFormValues>({
+    title: initial?.title ?? "",
+    who: initial?.who ?? "",
+    when: initial?.when ?? "",
+    why: initial?.why ?? "",
+    painPoints: initial?.painPoints ?? "",
+    alternatives: initial?.alternatives ?? "",
+    source: initial?.source ?? "manual",
+    sourceUrl: initial?.sourceUrl ?? "",
+    tags: initial?.tags ?? "",
+    stage: initial?.stage ?? "seed",
+    category: initial?.category ?? "",
   });
-  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+  const set = (k: keyof CardFormValues) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setForm((p) => ({ ...p, [k]: e.target.value }));
+
+  const title = mode === "add" ? "문제 카드 추가" : "문제 카드 수정";
+  const submitLabel = mode === "add" ? "저장" : "변경 저장";
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="bg-surface rounded-xl border border-border shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <h2 className="font-semibold text-sm text-foreground">문제 카드 추가</h2>
+          <h2 className="font-semibold text-sm text-foreground">{title}</h2>
           <button onClick={onClose}><X size={16} className="text-subtle" /></button>
         </div>
         <div className="p-5 space-y-3">
-          {[
-            ["title", "문제 제목 *", "text"],
-            ["who", "누가 겪는가 *", "text"],
-            ["when", "언제 겪는가", "text"],
-            ["why", "왜 겪는가", "text"],
-          ].map(([k, label]) => (
+          {([
+            ["title", "문제 제목 *"],
+            ["who", "누가 겪는가 *"],
+            ["when", "언제 겪는가"],
+            ["why", "왜 겪는가"],
+          ] as const).map(([k, label]) => (
             <div key={k}>
               <label className="text-xs text-muted mb-1 block">{label}</label>
               <input
-                value={(form as Record<string, string>)[k]}
+                value={form[k]}
                 onChange={set(k)}
                 className="w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
               />
             </div>
           ))}
-          {[
+          {([
             ["painPoints", "불편함 / 비용"],
             ["alternatives", "현재 대체재"],
-          ].map(([k, label]) => (
+          ] as const).map(([k, label]) => (
             <div key={k}>
               <label className="text-xs text-muted mb-1 block">{label}</label>
               <textarea
-                value={(form as Record<string, string>)[k]}
+                value={form[k]}
                 onChange={set(k)}
                 rows={2}
                 className="w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none"
               />
             </div>
           ))}
+          <div>
+            <label className="text-xs text-muted mb-1 block">출처 URL</label>
+            <input
+              type="url"
+              value={form.sourceUrl}
+              onChange={set("sourceUrl")}
+              placeholder="https://..."
+              className="w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+            />
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-muted mb-1 block">카테고리</label>
               <input value={form.category} onChange={set("category")} className="w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
             </div>
             <div>
-              <label className="text-xs text-muted mb-1 block">태그 (콤마 구분)</label>
-              <input value={form.tags} onChange={set("tags")} className="w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+              <label className="text-xs text-muted mb-1 block">단계</label>
+              <select
+                value={form.stage}
+                onChange={set("stage")}
+                className="w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+              >
+                <option value="seed">seed</option>
+                <option value="series-a">series-a</option>
+              </select>
             </div>
+          </div>
+          <div>
+            <label className="text-xs text-muted mb-1 block">태그 (콤마 구분)</label>
+            <input value={form.tags} onChange={set("tags")} className="w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
           </div>
           <button
             onClick={() => { if (form.title && form.who) { onSave(form); onClose(); } }}
             disabled={!form.title || !form.who}
             className="w-full rounded-lg bg-violet-600 py-2.5 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-40 transition-colors"
           >
-            저장
+            {submitLabel}
           </button>
         </div>
       </div>
@@ -390,11 +447,13 @@ function DetailPanel({
   card,
   onClose,
   onEvaluate,
+  onEdit,
   onDelete,
 }: {
   card: ProblemCard;
   onClose: () => void;
   onEvaluate: (card: ProblemCard) => void;
+  onEdit: (card: ProblemCard) => void;
   onDelete: (id: string) => void;
 }) {
   const isEvaluated = card.fitEvaluations.length > 0;
@@ -433,8 +492,17 @@ function DetailPanel({
           </div>
           <div className="flex items-center gap-2 shrink-0 mt-0.5">
             <button
+              onClick={() => onEdit(card)}
+              aria-label="문제 수정"
+              title="문제 수정"
+              className="text-subtle hover:text-violet-600 transition-colors"
+            >
+              <Pencil size={14} />
+            </button>
+            <button
               onClick={handleDelete}
               aria-label="문제 삭제"
+              title="문제 삭제"
               className="text-subtle hover:text-red-600 transition-colors"
             >
               <Trash2 size={14} />
@@ -488,14 +556,12 @@ function DetailPanel({
               <><Star size={14} className="mr-1.5 fill-white" />Fit 재평가하기</>
             ) : "Fit 평가하기"}
           </button>
-          {isEvaluated && (
-            <Link
-              href={`/validation/${card.id}`}
-              className="flex items-center justify-center w-full rounded-lg border border-violet-200 bg-violet-50 py-2.5 text-sm font-medium text-violet-700 hover:bg-violet-100 transition-colors"
-            >
-              검증 시작 <ArrowRight size={14} className="ml-1" />
-            </Link>
-          )}
+          <Link
+            href={`/validation/${card.id}`}
+            className="flex items-center justify-center w-full rounded-lg border border-violet-200 bg-violet-50 py-2.5 text-sm font-medium text-violet-700 hover:bg-violet-100 transition-colors"
+          >
+            검증 시작 <ArrowRight size={14} className="ml-1" />
+          </Link>
         </div>
       </div>
     </>
@@ -514,6 +580,7 @@ export default function ProblemsPage() {
   const [showScout, setShowScout] = useState(false);
   const [selectedCard, setSelectedCard] = useState<ProblemCard | null>(null);
   const [evaluatingCard, setEvaluatingCard] = useState<ProblemCard | null>(null);
+  const [editingCard, setEditingCard] = useState<ProblemCard | null>(null);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [loadingRecs, setLoadingRecs] = useState(false);
 
@@ -531,6 +598,15 @@ export default function ProblemsPage() {
   async function saveCard(data: Partial<ProblemCard>) {
     await fetch("/api/problems", {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    await fetchCards();
+  }
+
+  async function updateCard(id: string, data: Partial<ProblemCard>) {
+    await fetch(`/api/problems/${id}`, {
+      method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
@@ -783,7 +859,7 @@ export default function ProblemsPage() {
         ))}
       </div>
 
-      {showAdd && <AddCardModal onClose={() => setShowAdd(false)} onSave={saveCard} />}
+      {showAdd && <CardFormModal mode="add" onClose={() => setShowAdd(false)} onSave={saveCard} />}
       {showScout && <ScoutModal onClose={() => setShowScout(false)} onImport={importCards} />}
       {selectedCard && (() => {
         const fresh = cards.find((c) => c.id === selectedCard.id) ?? selectedCard;
@@ -792,10 +868,19 @@ export default function ProblemsPage() {
             card={fresh}
             onClose={() => setSelectedCard(null)}
             onEvaluate={(card) => setEvaluatingCard(card)}
+            onEdit={(card) => setEditingCard(card)}
             onDelete={deleteCard}
           />
         );
       })()}
+      {editingCard && (
+        <CardFormModal
+          mode="edit"
+          initial={editingCard}
+          onClose={() => setEditingCard(null)}
+          onSave={(data) => updateCard(editingCard.id, data)}
+        />
+      )}
       {evaluatingCard && (
         <FitEvaluateModal
           existing={evaluatingCard.fitEvaluations[0]}
