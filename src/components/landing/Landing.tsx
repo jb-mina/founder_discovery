@@ -16,7 +16,7 @@ export function Landing() {
         <Link
           href="#email-top"
           data-track-cta="header"
-          className="text-xs text-white/60 hover:text-white border border-white/15 rounded-full px-3 py-1.5"
+          className="text-xs text-amber-300 hover:text-amber-200 border border-amber-500/60 hover:border-amber-400 hover:bg-amber-500/10 rounded-full px-3 py-1.5 transition-colors"
         >
           초대장 받기
         </Link>
