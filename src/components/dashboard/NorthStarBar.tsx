@@ -32,7 +32,7 @@ export function NorthStarBar({ data }: { data: NorthStarSnapshot }) {
       <Card>
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold text-foreground">북극성 확신</p>
+            <p className="text-h2 font-semibold text-foreground">북극성 확신</p>
             <p className="text-xs text-muted mt-1">
               아직 검증된 가설이 없어요. 문제 카드부터 모아보세요.
             </p>
@@ -54,7 +54,7 @@ export function NorthStarBar({ data }: { data: NorthStarSnapshot }) {
 
   return (
     <Card>
-      <p className="text-sm font-semibold text-foreground mb-4">북극성 확신</p>
+      <p className="text-h2 font-semibold text-foreground mb-4">북극성 확신</p>
       <div className="space-y-4">
         <TrackedLink
           href="/validation"
@@ -62,11 +62,11 @@ export function NorthStarBar({ data }: { data: NorthStarSnapshot }) {
           className="block group"
         >
           <div className="flex items-baseline justify-between gap-3 mb-1">
-            <p className="text-xs text-muted">
+            <p className="text-sm text-muted">
               <span className="font-medium text-foreground">1차 — 문제 확신</span>{" "}
               <span className="text-subtle">"풀어도 되겠다"</span>
             </p>
-            <p className="text-xs font-semibold text-green-700">
+            <p className="text-h2 font-semibold text-green-700 tabular-nums">
               {data.problemConfirmed}/{data.problemTotal}
             </p>
           </div>
@@ -84,11 +84,11 @@ export function NorthStarBar({ data }: { data: NorthStarSnapshot }) {
           className="block group"
         >
           <div className="flex items-baseline justify-between gap-3 mb-1">
-            <p className="text-xs text-muted">
+            <p className="text-sm text-muted">
               <span className="font-medium text-foreground">2차 — 솔루션 검증</span>{" "}
               <span className="text-subtle">"실제로 작동한다"</span>
             </p>
-            <p className="text-xs font-semibold text-violet-700">
+            <p className="text-h2 font-semibold text-violet-700 tabular-nums">
               {data.solutionConfirmed}/{data.solutionTotal}
             </p>
           </div>
