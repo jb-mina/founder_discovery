@@ -556,12 +556,14 @@ function DetailPanel({
               <><Star size={14} className="mr-1.5 fill-white" />Fit 재평가하기</>
             ) : "Fit 평가하기"}
           </button>
-          <Link
-            href={`/validation/${card.id}`}
-            className="flex items-center justify-center w-full rounded-lg border border-violet-200 bg-violet-50 py-2.5 text-sm font-medium text-violet-700 hover:bg-violet-100 transition-colors"
-          >
-            검증 시작 <ArrowRight size={14} className="ml-1" />
-          </Link>
+          {isEvaluated && (
+            <Link
+              href={`/validation/${card.id}`}
+              className="flex items-center justify-center w-full rounded-lg border border-violet-200 bg-violet-50 py-2.5 text-sm font-medium text-violet-700 hover:bg-violet-100 transition-colors"
+            >
+              검증 시작 <ArrowRight size={14} className="ml-1" />
+            </Link>
+          )}
         </div>
       </div>
     </>
