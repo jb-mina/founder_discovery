@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { AxisWorkspace, type AxisWorkspaceData } from "@/components/validation/AxisWorkspace";
+import { OnePagerSection, type OnePagerData } from "@/components/validation/OnePagerSection";
 import {
   HYPOTHESIS_STATUS_LABELS,
   HYPOTHESIS_STATUS_VARIANTS,
@@ -38,15 +39,18 @@ export type SolutionBlockData = {
     moderatorSummary: string;
     createdAt: string;
   } | null;
+  onePager: OnePagerData | null;
 };
 
 export function SolutionValidationBlock({
   solution,
+  problemConfirmed,
   onChanged,
   expanded: controlledExpanded,
   onToggle: controlledToggle,
 }: {
   solution: SolutionBlockData;
+  problemConfirmed: boolean;
   onChanged: () => void | Promise<void>;
   expanded?: boolean;
   onToggle?: () => void;
@@ -79,6 +83,7 @@ export function SolutionValidationBlock({
     ? parsePrescribedMethods(solution.willingness.prescribedMethods).length
     : 0;
   const hasRC = solution.realityCheck !== null;
+  const hasOnePager = solution.onePager !== null;
 
   return (
     <div className="rounded-2xl border border-violet-200 bg-violet-50/30 overflow-hidden">
@@ -120,6 +125,16 @@ export function SolutionValidationBlock({
             extra={willingnessMethodCount > 0 ? `메서드 ${willingnessMethodCount}개` : "처방 대기"}
           />
           <div className="flex items-center justify-between text-xs">
+            <span className="text-tertiary">1-pager</span>
+            <span className="text-subtle">
+              {hasOnePager
+                ? "초안 있음"
+                : problemConfirmed && solution.status === "active"
+                  ? "생성 가능"
+                  : "문제 검증 후"}
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-xs">
             <span className="text-tertiary">Reality Check</span>
             <span className="text-subtle">{hasRC ? "최근 결과 있음" : "미실행"}</span>
           </div>
@@ -160,6 +175,12 @@ export function SolutionValidationBlock({
             hypothesis={solution.willingness}
             onUpdated={onChanged}
             loadingPlaceholder="처방 생성 중..."
+          />
+          <OnePagerSection
+            solutionHypothesisId={solution.id}
+            triggerMet={problemConfirmed && solution.status === "active"}
+            onePager={solution.onePager}
+            onChanged={onChanged}
           />
           <RealityCheckSection solution={solution} onChanged={onChanged} />
         </div>

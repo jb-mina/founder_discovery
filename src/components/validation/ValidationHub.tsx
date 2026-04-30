@@ -8,6 +8,7 @@ import { MainTabs, type TabKey } from "@/components/validation/MainTabs";
 import { AxisWorkspace, type AxisWorkspaceData } from "@/components/validation/AxisWorkspace";
 import { SolutionPanel, type SolutionPanelData } from "@/components/validation/SolutionPanel";
 import { SolutionValidationBlock } from "@/components/validation/SolutionValidationBlock";
+import type { OnePagerData } from "@/components/validation/OnePagerSection";
 
 type ApiHypothesis = AxisWorkspaceData & {
   problemCardId: string | null;
@@ -30,6 +31,7 @@ type ApiSolution = {
   status: string;
   hypotheses: ApiHypothesis[];
   realityChecks: ApiRealityCheck[];
+  onePager: OnePagerData | null;
 };
 
 type ApiView = {
@@ -152,6 +154,7 @@ export function ValidationHub({ problemCardId }: { problemCardId: string }) {
             problemCardId={problemCardId}
             solutionPanel={solutionPanelData}
             activeSolutions={activeSolutions}
+            problemFullyConfirmed={problemConfirmed === 2}
             onChanged={async () => {
               await fetchView();
             }}
@@ -190,12 +193,14 @@ function SolutionTab({
   problemCardId,
   solutionPanel,
   activeSolutions,
+  problemFullyConfirmed,
   onChanged,
   onJumpToProblem,
 }: {
   problemCardId: string;
   solutionPanel: SolutionPanelData[];
   activeSolutions: ApiSolution[];
+  problemFullyConfirmed: boolean;
   onChanged: () => Promise<void>;
   onJumpToProblem: () => void;
 }) {
@@ -263,7 +268,9 @@ function SolutionTab({
                 fit: s.hypotheses.find((h) => h.axis === "fit") ?? null,
                 willingness: s.hypotheses.find((h) => h.axis === "willingness") ?? null,
                 realityCheck: s.realityChecks[0] ?? null,
+                onePager: s.onePager,
               }}
+              problemConfirmed={problemFullyConfirmed}
               expanded={expandedIds.has(s.id)}
               onToggle={() => toggleOne(s.id)}
               onChanged={onChanged}
