@@ -313,6 +313,7 @@
   gaps: { category: CoreCategory, reason }[],       // 최대 3개
   threadToResume?: { summary, relatedEntryIds }[],  // 종료 호출에서만, 최대 2개
   entryTagsByEntryId: { [entryId]: string[] },      // 노드맵 엣지 산출용, 각 0~7개 (2026-05-01)
+  clusterMeanings: { category, oneLine }[],         // 카테고리별 패턴 한 줄, 최대 6개. 캔버스 박스 라벨에 표시 (2026-05-01)
 }
 ```
 

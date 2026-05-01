@@ -75,12 +75,15 @@ export async function getLatestSynthesis(): Promise<SelfMapSynthesis | null> {
 
 export type EntryTagsByEntryId = Record<string, string[]>;
 
+export type ClusterMeaning = { category: CoreCategory; oneLine: string };
+
 export type SynthesisInput = {
   identityStatement: string;
   citedEntryIds: string[];
   tensions: TensionEntry[];
   gaps: GapEntry[];
   entryTagsByEntryId: EntryTagsByEntryId;
+  clusterMeanings: ClusterMeaning[];
 };
 
 // Upsert by snapshotKey. Preserves userEditedStatement and dismissedTensionKeys
@@ -98,6 +101,7 @@ export async function upsertSynthesis(
       tensions: JSON.stringify(input.tensions),
       gaps: JSON.stringify(input.gaps),
       entryTagsByEntryId: JSON.stringify(input.entryTagsByEntryId),
+      clusterMeanings: JSON.stringify(input.clusterMeanings),
     },
     update: {
       identityStatement: input.identityStatement,
@@ -105,6 +109,7 @@ export async function upsertSynthesis(
       tensions: JSON.stringify(input.tensions),
       gaps: JSON.stringify(input.gaps),
       entryTagsByEntryId: JSON.stringify(input.entryTagsByEntryId),
+      clusterMeanings: JSON.stringify(input.clusterMeanings),
     },
   });
 }
@@ -130,6 +135,7 @@ export type ParsedSynthesis = {
   gaps: GapEntry[];
   dismissedTensionKeys: string[];
   entryTagsByEntryId: EntryTagsByEntryId;
+  clusterMeanings: ClusterMeaning[];
   updatedAt: Date;
 };
 
@@ -144,6 +150,7 @@ export function parseSynthesis(row: SelfMapSynthesis): ParsedSynthesis {
     gaps: safeJsonArray<GapEntry>(row.gaps),
     dismissedTensionKeys: safeJsonArray<string>(row.dismissedTensionKeys),
     entryTagsByEntryId: parseEntryTagsByEntryId(row.entryTagsByEntryId),
+    clusterMeanings: safeJsonArray<ClusterMeaning>(row.clusterMeanings),
     updatedAt: row.updatedAt,
   };
 }

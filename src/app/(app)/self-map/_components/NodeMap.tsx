@@ -31,6 +31,8 @@ export type NodeMapEntry = {
   tags: string;
 };
 
+export type ClusterMeaning = { category: string; oneLine: string };
+
 const CATEGORY_COLOR: Record<string, string> = {
   interests: "#8b5cf6",
   strengths: "#10b981",
@@ -64,10 +66,14 @@ const CATEGORY_ORDER = ["interests", "strengths", "aversions", "flow", "network"
 export function NodeMap({
   refreshSignal,
   entries,
+  clusterMeanings = [],
   onJumpToEntry,
 }: {
   refreshSignal: string | number;
   entries: NodeMapEntry[];
+  // Per-category one-line meaning rendered on the compound box label so
+  // the canvas reads as patterns, not just colored dots.
+  clusterMeanings?: ClusterMeaning[];
   // Optional — when provided, the detail panel exposes "인터뷰에서 이 답변 보기"
   // which calls back so the page can flip to interview mode + scroll.
   onJumpToEntry?: (entryId: string) => void;
@@ -124,19 +130,30 @@ export function NodeMap({
     // Compound parent nodes — one per category that has at least one entry.
     // cose-bilkent groups children of the same parent together, so this both
     // produces a category-named box around the cluster and pulls semantically
-    // related nodes physically closer.
+    // related nodes physically closer. The label combines the category name
+    // with the synthesizer-emitted one-line meaning so each cluster reads as
+    // a recognizable pattern, not just a colored region.
     const presentCategories = CATEGORY_ORDER.filter((cat) =>
       graph.nodes.some((n) => n.category === cat),
     );
 
-    const parentElements: ElementDefinition[] = presentCategories.map((cat) => ({
-      data: {
-        id: `cat-${cat}`,
-        label: CATEGORY_LABEL_KO[cat] ?? cat,
-        category: cat,
-      },
-      classes: "category-parent",
-    }));
+    const meaningByCategory = new Map(
+      clusterMeanings.map((c) => [c.category, c.oneLine] as const),
+    );
+
+    const parentElements: ElementDefinition[] = presentCategories.map((cat) => {
+      const catLabel = CATEGORY_LABEL_KO[cat] ?? cat;
+      const meaning = meaningByCategory.get(cat);
+      return {
+        data: {
+          id: `cat-${cat}`,
+          label: meaning ? `${catLabel}\n${meaning}` : catLabel,
+          category: cat,
+          hasMeaning: meaning ? "1" : "0",
+        },
+        classes: "category-parent",
+      };
+    });
 
     const elements: ElementDefinition[] = [
       ...parentElements,
@@ -203,12 +220,16 @@ export function NodeMap({
             "border-color": (ele: cytoscape.NodeSingular) => colorFor(ele.data("category")),
             "border-style": "dashed",
             label: "data(label)",
-            "font-size": "13px",
-            "font-weight": 700,
+            "font-size": (ele: cytoscape.NodeSingular) =>
+              ele.data("hasMeaning") === "1" ? "11px" : "13px",
+            "font-weight": 600,
             color: (ele: cytoscape.NodeSingular) => colorFor(ele.data("category")),
             "text-valign": "top",
             "text-halign": "center",
             "text-margin-y": -6,
+            "text-wrap": "wrap",
+            "text-max-width": "200px",
+            "line-height": 1.35,
             shape: "round-rectangle",
             padding: "16px",
             "min-width": "60px",
@@ -302,7 +323,7 @@ export function NodeMap({
       cy.destroy();
       if (cyRef.current === cy) cyRef.current = null;
     };
-  }, [graph]);
+  }, [graph, clusterMeanings]);
 
   if (loading) {
     return (

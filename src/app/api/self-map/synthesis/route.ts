@@ -53,6 +53,7 @@ export async function GET() {
     tensions: output.tensions,
     gaps: output.gaps,
     entryTagsByEntryId: output.entryTagsByEntryId,
+    clusterMeanings: output.clusterMeanings,
   });
 
   // Carry forward user state.

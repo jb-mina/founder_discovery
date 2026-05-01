@@ -445,6 +445,11 @@ export default function SelfMapPage() {
               <NodeMap
                 refreshSignal={graphSignal}
                 entries={entries}
+                clusterMeanings={
+                  synthesisState.status === "ready"
+                    ? synthesisState.synthesis.clusterMeanings ?? []
+                    : []
+                }
                 onJumpToEntry={handleJumpToEntry}
               />
             </div>

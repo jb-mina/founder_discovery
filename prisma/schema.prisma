@@ -184,6 +184,10 @@ model SelfMapSynthesis {
   // { [entryId]: string[] }. Combined with user-edited SelfMapEntry.tags
   // (comma-separated) to compute graph edges (shared tag = edge).
   entryTagsByEntryId    String   @default("{}")
+  // Per-category one-line meaning for the canvas. Shape:
+  // [{ category: CoreCategory, oneLine: string }]. Renders above each
+  // compound category box so clusters carry semantic context, not just color.
+  clusterMeanings       String   @default("[]")
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 }
