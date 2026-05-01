@@ -34,6 +34,7 @@ export async function POST() {
     tensions: output.tensions,
     gaps: output.gaps,
     entryTagsByEntryId: output.entryTagsByEntryId,
+    clusterMeanings: output.clusterMeanings,
   });
 
   if (previousParsed) {

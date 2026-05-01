@@ -13,6 +13,7 @@ export type Synthesis = {
   tensions: { entryIdA: string; entryIdB: string; description: string }[];
   gaps: { category: string; reason: string }[];
   dismissedTensionKeys: string[];
+  clusterMeanings?: { category: string; oneLine: string }[];
   updatedAt: string;
 };
 
