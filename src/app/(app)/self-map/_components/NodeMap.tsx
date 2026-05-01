@@ -54,10 +54,12 @@ function colorFor(category: string): string {
 }
 
 function shortLabel(question: string): string {
-  // 노드 옆 라벨은 8자까지만. 전체는 호버 footer + 클릭 시 detail 패널에서 노출.
+  // 노드 옆 라벨 — 호버 popover에 전체 카드가 뜨므로 여기는 식별용 단서만.
   const trimmed = question.trim();
-  return trimmed.length > 8 ? `${trimmed.slice(0, 8)}…` : trimmed;
+  return trimmed.length > 10 ? `${trimmed.slice(0, 10)}…` : trimmed;
 }
+
+const CATEGORY_ORDER = ["interests", "strengths", "aversions", "flow", "network", "other"] as const;
 
 export function NodeMap({
   refreshSignal,
@@ -77,6 +79,8 @@ export function NodeMap({
   const [error, setError] = useState<string | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null);
+  const [containerWidth, setContainerWidth] = useState<number>(0);
 
   const hoveredEntry = hoveredNodeId ? entries.find((e) => e.id === hoveredNodeId) : null;
   const selectedEntry = selectedNodeId ? entries.find((e) => e.id === selectedNodeId) : null;
@@ -117,7 +121,25 @@ export function NodeMap({
 
     cyRef.current?.destroy();
 
+    // Compound parent nodes — one per category that has at least one entry.
+    // cose-bilkent groups children of the same parent together, so this both
+    // produces a category-named box around the cluster and pulls semantically
+    // related nodes physically closer.
+    const presentCategories = CATEGORY_ORDER.filter((cat) =>
+      graph.nodes.some((n) => n.category === cat),
+    );
+
+    const parentElements: ElementDefinition[] = presentCategories.map((cat) => ({
+      data: {
+        id: `cat-${cat}`,
+        label: CATEGORY_LABEL_KO[cat] ?? cat,
+        category: cat,
+      },
+      classes: "category-parent",
+    }));
+
     const elements: ElementDefinition[] = [
+      ...parentElements,
       ...graph.nodes.map((n) => ({
         data: {
           id: n.id,
@@ -125,6 +147,11 @@ export function NodeMap({
           fullLabel: n.label,
           category: n.category,
           tags: n.tags.join(", "),
+          parent: presentCategories.includes(
+            n.category as (typeof CATEGORY_ORDER)[number],
+          )
+            ? `cat-${n.category}`
+            : undefined,
         },
       })),
       ...graph.edges.map((e, i) => ({
@@ -143,27 +170,49 @@ export function NodeMap({
       elements,
       style: [
         {
-          selector: "node",
+          selector: "node:childless",
           style: {
             "background-color": (ele: cytoscape.NodeSingular) => colorFor(ele.data("category")),
             label: "data(label)",
             color: "#1f2937",
-            "font-size": "10px",
+            "font-size": "12px",
+            "font-weight": 500,
             "text-valign": "bottom",
-            "text-margin-y": 6,
+            "text-margin-y": 8,
             "text-wrap": "wrap",
-            "text-max-width": "80px",
-            width: 26,
-            height: 26,
+            "text-max-width": "100px",
+            width: 28,
+            height: 28,
             "border-width": 2,
             "border-color": "#ffffff",
           },
         },
         {
-          selector: "node:selected",
+          selector: "node:childless:selected",
           style: {
             "border-width": 3,
             "border-color": "#7c3aed",
+          },
+        },
+        {
+          selector: "node:parent",
+          style: {
+            "background-color": (ele: cytoscape.NodeSingular) => colorFor(ele.data("category")),
+            "background-opacity": 0.08,
+            "border-width": 1.5,
+            "border-color": (ele: cytoscape.NodeSingular) => colorFor(ele.data("category")),
+            "border-style": "dashed",
+            label: "data(label)",
+            "font-size": "13px",
+            "font-weight": 700,
+            color: (ele: cytoscape.NodeSingular) => colorFor(ele.data("category")),
+            "text-valign": "top",
+            "text-halign": "center",
+            "text-margin-y": -6,
+            shape: "round-rectangle",
+            padding: "16px",
+            "min-width": "60px",
+            "min-height": "60px",
           },
         },
         {
@@ -196,18 +245,21 @@ export function NodeMap({
       maxZoom: 3,
     });
 
-    cy.on("tap", "node", (evt) => {
+    cy.on("tap", "node:childless", (evt) => {
       setSelectedNodeId(evt.target.id());
     });
     cy.on("tap", (evt) => {
-      // Background click closes the detail panel.
-      if (evt.target === cy) setSelectedNodeId(null);
+      // Background or compound-parent click closes the detail panel.
+      if (evt.target === cy || evt.target.isParent?.()) setSelectedNodeId(null);
     });
-    cy.on("mouseover", "node", (evt) => {
+    cy.on("mouseover", "node:childless", (evt) => {
+      const pos = evt.target.renderedPosition();
+      setHoverPos({ x: pos.x, y: pos.y });
       setHoveredNodeId(evt.target.id());
     });
-    cy.on("mouseout", "node", () => {
+    cy.on("mouseout", "node:childless", () => {
       setHoveredNodeId(null);
+      setHoverPos(null);
     });
 
     cyRef.current = cy;
@@ -221,6 +273,7 @@ export function NodeMap({
       const w = entries[0]?.contentRect.width ?? 0;
       const h = entries[0]?.contentRect.height ?? 0;
       if (w < 50 || h < 50) return;
+      setContainerWidth(w);
 
       if (pendingFrame) cancelAnimationFrame(pendingFrame);
       pendingFrame = requestAnimationFrame(() => {
@@ -279,9 +332,77 @@ export function NodeMap({
     );
   }
 
+  // Hover popover position — flip horizontally if the node sits in the right
+  // half so the card stays inside the canvas. Pointer-events disabled so the
+  // mouse never lands on the popover itself (avoids hover thrashing).
+  const popoverWidth = 288;
+  const popoverPos = hoverPos && containerWidth > 0
+    ? hoverPos.x + popoverWidth + 24 > containerWidth
+      ? { right: containerWidth - hoverPos.x + 14, top: Math.max(8, hoverPos.y - 30) }
+      : { left: hoverPos.x + 14, top: Math.max(8, hoverPos.y - 30) }
+    : null;
+  const showHoverPopover = hoveredEntry && popoverPos && !selectedEntry;
+
   return (
     <div className="relative rounded-xl border border-border bg-canvas overflow-hidden flex flex-col h-full min-h-0 w-full">
       <div ref={containerRef} className="w-full flex-1 min-h-0" />
+
+      {/* Top-left legend — category color key. Backdrop blur so it stays */}
+      {/* legible over nodes that drift behind it. */}
+      <div className="absolute top-3 left-3 rounded-lg border border-border bg-surface/95 backdrop-blur-sm shadow-sm px-2.5 py-2 z-10">
+        <div className="text-[9px] text-subtle mb-1.5 font-medium tracking-wide uppercase">
+          카테고리
+        </div>
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+          {(["interests", "strengths", "aversions", "flow", "network"] as const).map((cat) => (
+            <div key={cat} className="flex items-center gap-1.5 text-[10px]">
+              <span
+                className="w-2 h-2 rounded-full shrink-0"
+                style={{ backgroundColor: CATEGORY_COLOR[cat] }}
+              />
+              <span className="text-tertiary">{CATEGORY_LABEL_KO[cat]}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Hover popover — quick preview anchored next to the node. */}
+      {showHoverPopover && hoveredEntry && popoverPos && (
+        <div
+          className="absolute pointer-events-none z-10 rounded-xl border border-border bg-surface shadow-md px-3 py-2.5"
+          style={{ ...popoverPos, width: popoverWidth, maxWidth: popoverWidth }}
+        >
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <span
+              className="inline-block w-1.5 h-1.5 rounded-full"
+              style={{ backgroundColor: colorFor(hoveredEntry.category) }}
+            />
+            <span className="text-[10px] font-medium text-tertiary">
+              {CATEGORY_LABEL_KO[hoveredEntry.category] ?? hoveredEntry.category}
+            </span>
+          </div>
+          <p className="text-[11px] text-muted leading-relaxed mb-1">{hoveredEntry.question}</p>
+          <p className="text-xs text-body leading-relaxed whitespace-pre-wrap line-clamp-5">
+            {hoveredEntry.answer}
+          </p>
+          {hoveredEntry.tags && (
+            <div className="mt-1.5 flex flex-wrap gap-1">
+              {hoveredEntry.tags
+                .split(",")
+                .filter(Boolean)
+                .slice(0, 6)
+                .map((t) => (
+                  <span
+                    key={t}
+                    className="text-[10px] bg-wash text-tertiary rounded px-1.5 py-0.5"
+                  >
+                    {t.trim()}
+                  </span>
+                ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {selectedEntry && (
         <div className="absolute top-3 right-3 max-w-sm w-[min(22rem,calc(100%-1.5rem))] rounded-xl border border-border bg-surface shadow-lg z-10">
@@ -335,24 +456,13 @@ export function NodeMap({
         </div>
       )}
 
-      <div className="shrink-0 px-3 py-2 border-t border-border text-[11px] text-subtle">
-        {hoveredEntry ? (
-          <div className="flex items-center gap-2 min-w-0">
-            <span
-              className="shrink-0 inline-block w-2 h-2 rounded-full"
-              style={{ backgroundColor: colorFor(hoveredEntry.category) }}
-            />
-            <span className="text-tertiary shrink-0">
-              {CATEGORY_LABEL_KO[hoveredEntry.category] ?? hoveredEntry.category}
-            </span>
-            <span className="text-body truncate">{hoveredEntry.question}</span>
-          </div>
-        ) : (
-          <div className="flex items-center justify-between">
-            <span>노드 {graph.nodes.length} · 엣지 {graph.edges.length}</span>
-            <span>호버: 전체 질문 · 클릭: 답변 상세</span>
-          </div>
-        )}
+      <div className="shrink-0 px-3 py-2 border-t border-border text-[11px] text-subtle flex items-center justify-between gap-3">
+        <span className="shrink-0">
+          노드 {graph.nodes.length} · 엣지 {graph.edges.length}
+        </span>
+        <span className="truncate text-right">
+          가까울수록 공유 태그 ↑ · 호버: 미리보기 · 클릭: 상세
+        </span>
       </div>
     </div>
   );
