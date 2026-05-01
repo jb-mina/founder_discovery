@@ -40,6 +40,16 @@ const CATEGORY_REMAP: Record<string, ProblemCategory | ""> = {
   "Alternative Food": "식품/음식",
   "Ghost Kitchen": "식품/음식",
   "Delivery Automation": "AI/자동화",
+  // additional mappings from first dry-run review (2026-05-01)
+  "B2B SaaS / 핀테크": "세금/회계",
+  "커머스 테크": "쇼핑/커머스",
+  "크리에이터 테크": "크리에이터 이코노미",
+  "에이징 테크 / 케어 테크": "시니어/돌봄",
+  "Food Delivery": "식품/음식",
+  "Restaurant Tech": "식품/음식",
+  "언어 학습": "교육",
+  "어린이 언어 교육": "교육",
+  "AI 거버넌스, 디지털 신원·권리 보호, Trust & Safety": "AI/자동화",
 };
 
 type Reason = "already-enum" | "remapped" | "fallback-empty" | "no-change";
