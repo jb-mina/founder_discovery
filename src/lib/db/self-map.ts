@@ -73,11 +73,14 @@ export async function getLatestSynthesis(): Promise<SelfMapSynthesis | null> {
   return prisma.selfMapSynthesis.findFirst({ orderBy: { updatedAt: "desc" } });
 }
 
+export type EntryTagsByEntryId = Record<string, string[]>;
+
 export type SynthesisInput = {
   identityStatement: string;
   citedEntryIds: string[];
   tensions: TensionEntry[];
   gaps: GapEntry[];
+  entryTagsByEntryId: EntryTagsByEntryId;
 };
 
 // Upsert by snapshotKey. Preserves userEditedStatement and dismissedTensionKeys
@@ -94,12 +97,14 @@ export async function upsertSynthesis(
       citedEntryIds: JSON.stringify(input.citedEntryIds),
       tensions: JSON.stringify(input.tensions),
       gaps: JSON.stringify(input.gaps),
+      entryTagsByEntryId: JSON.stringify(input.entryTagsByEntryId),
     },
     update: {
       identityStatement: input.identityStatement,
       citedEntryIds: JSON.stringify(input.citedEntryIds),
       tensions: JSON.stringify(input.tensions),
       gaps: JSON.stringify(input.gaps),
+      entryTagsByEntryId: JSON.stringify(input.entryTagsByEntryId),
     },
   });
 }
@@ -124,6 +129,7 @@ export type ParsedSynthesis = {
   tensions: TensionEntry[];
   gaps: GapEntry[];
   dismissedTensionKeys: string[];
+  entryTagsByEntryId: EntryTagsByEntryId;
   updatedAt: Date;
 };
 
@@ -137,8 +143,37 @@ export function parseSynthesis(row: SelfMapSynthesis): ParsedSynthesis {
     tensions: safeJsonArray<TensionEntry>(row.tensions),
     gaps: safeJsonArray<GapEntry>(row.gaps),
     dismissedTensionKeys: safeJsonArray<string>(row.dismissedTensionKeys),
+    entryTagsByEntryId: parseEntryTagsByEntryId(row.entryTagsByEntryId),
     updatedAt: row.updatedAt,
   };
+}
+
+function parseEntryTagsByEntryId(raw: string): EntryTagsByEntryId {
+  try {
+    const v = JSON.parse(raw);
+    if (!v || typeof v !== "object" || Array.isArray(v)) return {};
+    const out: EntryTagsByEntryId = {};
+    for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+      if (Array.isArray(val)) {
+        out[k] = val.filter((t): t is string => typeof t === "string" && t.trim().length > 0);
+      }
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+// User-edited tags string → normalized tag list. Lowercase + trim + dedup.
+export function parseUserTagString(raw: string): string[] {
+  return Array.from(
+    new Set(
+      raw
+        .split(",")
+        .map((t) => t.trim().toLowerCase())
+        .filter((t) => t.length > 0),
+    ),
+  );
 }
 
 // ---------------- Interview sessions ----------------

@@ -10,6 +10,7 @@ import {
   type SynthesisState,
 } from "./_components/FounderIdentityCard";
 import { TensionGapSide } from "./_components/TensionGapSide";
+import { NodeMap } from "./_components/NodeMap";
 
 type Message = { role: "user" | "assistant"; content: string };
 type SelfMapEntry = {
@@ -56,6 +57,7 @@ export default function SelfMapPage() {
   const [editingEntry, setEditingEntry] = useState<SelfMapEntry | null>(null);
   const [editForm, setEditForm] = useState({ category: "", question: "", answer: "", tags: "" });
   const [activeTab, setActiveTab] = useState<"chat" | "map">("chat");
+  const [selfMapView, setSelfMapView] = useState<"list" | "map">("list");
 
   // "이번 대화에서" 새 항목 도트용 baseline.
   // 페이지 mount 시 첫 fetchEntries에서 한 번만 set되고 새로고침 시 초기화 → fresh가 빈 셋 (의도).
@@ -299,6 +301,11 @@ export default function SelfMapPage() {
     return acc;
   }, {});
 
+  // Bumped whenever entries shift or a fresh synthesis lands → NodeMap refetches.
+  const graphSignal = `${entries.length}-${
+    synthesisState.status === "ready" ? synthesisState.synthesis.updatedAt : "x"
+  }`;
+
   const freshIds = new Set(entries.filter((e) => !baselineIds.has(e.id)).map((e) => e.id));
 
   return (
@@ -409,15 +416,33 @@ export default function SelfMapPage() {
       >
         <div className="flex items-center justify-between px-4 py-4 border-b border-border">
           <h2 className="text-sm font-semibold text-foreground">Self Map</h2>
-          <button
-            onClick={async () => {
-              await fetchEntries();
-              await loadSynthesis();
-            }}
-            className="text-subtle hover:text-secondary p-1 rounded"
-          >
-            <RefreshCw size={14} />
-          </button>
+          <div className="flex items-center gap-2">
+            <div className="inline-flex items-center rounded-md border border-border bg-canvas p-0.5 text-[11px]">
+              {(["list", "map"] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setSelfMapView(v)}
+                  className={`px-2 py-0.5 rounded transition-colors ${
+                    selfMapView === v
+                      ? "bg-violet-600 text-white"
+                      : "text-muted hover:text-foreground"
+                  }`}
+                >
+                  {v === "list" ? "List" : "Map"}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={async () => {
+                await fetchEntries();
+                await loadSynthesis();
+              }}
+              className="text-subtle hover:text-secondary p-1 rounded"
+              title="새로고침"
+            >
+              <RefreshCw size={14} />
+            </button>
+          </div>
         </div>
 
         <div className="px-4 py-4 space-y-4">
@@ -440,11 +465,21 @@ export default function SelfMapPage() {
             />
           )}
 
-          {entries.length === 0 && (
+          {selfMapView === "map" && (
+            <NodeMap
+              refreshSignal={graphSignal}
+              onNodeClick={(entryId) => {
+                setSelfMapView("list");
+                scrollToEntry(entryId);
+              }}
+            />
+          )}
+
+          {selfMapView === "list" && entries.length === 0 && (
             <p className="text-xs text-subtle text-center py-8">대화하면 여기에 자동으로 정리됩니다</p>
           )}
 
-          {Object.entries(grouped).map(([cat, items]) => {
+          {selfMapView === "list" && Object.entries(grouped).map(([cat, items]) => {
             const meta = CATEGORY_LABELS[cat] ?? CATEGORY_LABELS.other;
             return (
               <div key={cat}>

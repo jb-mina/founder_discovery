@@ -25,12 +25,21 @@ export const threadSchema = z.object({
   relatedEntryIds: z.array(z.string()).max(5).default([]),
 });
 
+// Per-entry tags map used by the node map. Each value is 0~7 short tags
+// (Korean nouns / compound nouns). Empty record default lets the agent
+// no-op when entries are too sparse.
+export const entryTagsByEntryIdSchema = z.record(
+  z.string(),
+  z.array(z.string().min(1)).max(7),
+);
+
 export const synthesizerOutputSchema = z.object({
   identityStatement: z.string().min(20).max(400),
   citedEntryIds: z.array(z.string()).min(1).max(8),
   tensions: z.array(tensionSchema).max(3).default([]),
   gaps: z.array(gapSchema).max(3).default([]),
   threadToResume: z.array(threadSchema).max(2).default([]),
+  entryTagsByEntryId: entryTagsByEntryIdSchema.default({}),
 });
 
 export type SynthesizerTension = z.infer<typeof tensionSchema>;

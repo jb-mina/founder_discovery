@@ -33,6 +33,7 @@ export async function POST() {
     citedEntryIds: output.citedEntryIds,
     tensions: output.tensions,
     gaps: output.gaps,
+    entryTagsByEntryId: output.entryTagsByEntryId,
   });
 
   if (previousParsed) {

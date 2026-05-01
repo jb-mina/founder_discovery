@@ -85,6 +85,7 @@ export async function POST(
     citedEntryIds: synthesis.citedEntryIds,
     tensions: synthesis.tensions,
     gaps: synthesis.gaps,
+    entryTagsByEntryId: synthesis.entryTagsByEntryId,
   });
   if (previousSynthesisRow) {
     const prev = parseSynthesis(previousSynthesisRow);
