@@ -97,13 +97,18 @@
     sourceUrl: string,
     tags: string,
     stage: "seed" | "series-a",
-    category: string
+    category: ProblemCategory | ""  // lib/problem-categories.ts의 33개 enum 또는 빈 문자열
   }
 ]
 ```
 
+### 카테고리 enum 강제 (2026-05-01)
+- 입력: `ScoutModal`의 관심 분야 chip은 `lib/problem-categories.ts`의 9그룹 33개 enum + 자유 chip 입력 (자유 chip은 query에만 흘러감, 출력 enum은 강제 유지).
+- 출력: 시스템 프롬프트에 enum 명시 + 미일치 시 빈 문자열. 클라이언트 import 직전(`ScoutModal`)과 서버 POST(`api/problems/route.ts`)에서 `normalizeProblemCategory`로 이중 가드.
+- 관련 1회 정리: `scripts/normalize-categories.ts`로 기존 더러운 값을 enum에 매핑하거나 빈 문자열로 폴백.
+
 ### 문제점
-- 클라이언트(`problems/page.tsx`)에서 스트리밍 완료 후 `/\[[\s\S]*\]/` 정규식으로 JSON 추출 → 자유 텍스트 파싱 패턴
+- 클라이언트(`problems/page.tsx`)에서 스트리밍 완료 후 `/\[[\s\S]*\]/` 정규식으로 JSON 추출 → 자유 텍스트 파싱 패턴 (`lib/agents/` 이전 + zod 검증은 별건 대기)
 - 실제 웹 스크래핑 없이 모델 지식에만 의존 → 출처 URL이 hallucination될 수 있음 (CLAUDE.md "출처 URL/날짜 필수" 지침 달성 어려움)
 - 초기 시드 데이터가 `api/problems/seed/route.ts`에 하드코딩 → CLAUDE.md "seeds/problem-cards.json으로만" 위반
 

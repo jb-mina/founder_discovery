@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { isProblemCategory } from "@/lib/problem-categories";
 
 const EDITABLE_FIELDS = [
   "title",
@@ -29,6 +30,22 @@ export async function PATCH(
 
   if (Object.keys(data).length === 0) {
     return NextResponse.json({ error: "No editable fields provided" }, { status: 400 });
+  }
+
+  if ("category" in data) {
+    const next = data.category;
+    if (next !== "" && !isProblemCategory(next)) {
+      const existing = await prisma.problemCard.findUnique({
+        where: { id },
+        select: { category: true },
+      });
+      if (!existing || next !== existing.category) {
+        return NextResponse.json(
+          { error: "Invalid category. Must be one of the allowed enum values or empty string." },
+          { status: 400 },
+        );
+      }
+    }
   }
 
   const card = await prisma.problemCard.update({ where: { id }, data });
