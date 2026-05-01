@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Send, Trash2, Brain, RefreshCw, Pencil, X, Loader2 } from "lucide-react";
+import { Send, Trash2, Brain, RefreshCw, Pencil, X, Loader2, MessageSquare, Network } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -22,6 +22,7 @@ type SelfMapEntry = {
 };
 
 type Mode = "thread" | "gap" | "tension" | "energy";
+type PageMode = "interview" | "canvas";
 
 type OpeningResponse = {
   interviewSessionId: string;
@@ -56,8 +57,7 @@ export default function SelfMapPage() {
   const [ending, setEnding] = useState(false);
   const [editingEntry, setEditingEntry] = useState<SelfMapEntry | null>(null);
   const [editForm, setEditForm] = useState({ category: "", question: "", answer: "", tags: "" });
-  const [activeTab, setActiveTab] = useState<"chat" | "map">("chat");
-  const [selfMapView, setSelfMapView] = useState<"list" | "map">("list");
+  const [pageMode, setPageMode] = useState<PageMode>("interview");
 
   // "이번 대화에서" 새 항목 도트용 baseline.
   // 페이지 mount 시 첫 fetchEntries에서 한 번만 set되고 새로고침 시 초기화 → fresh가 빈 셋 (의도).
@@ -71,7 +71,6 @@ export default function SelfMapPage() {
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const mapPanelRef = useRef<HTMLDivElement>(null);
 
   const fetchEntries = useCallback(async () => {
     const res = await fetch("/api/self-map");
@@ -190,7 +189,7 @@ export default function SelfMapPage() {
       setModeHintLine(data.modeHintLine ?? null);
       setMessages([{ role: "assistant", content: data.firstMessage }]);
       setStarted(true);
-      setActiveTab("chat");
+      setPageMode("interview");
     } catch (e) {
       alert(`인터뷰 시작 실패: ${(e as Error).message}`);
     } finally {
@@ -263,15 +262,15 @@ export default function SelfMapPage() {
   }
 
   function scrollToEntry(entryId: string) {
-    setActiveTab("map");
-    // Wait for DOM to flip the panel into view on mobile.
+    setPageMode("interview");
+    // Wait for DOM to flip into interview mode (sidebar is rendered then).
     setTimeout(() => {
       const el = document.querySelector<HTMLElement>(`[data-entry-id="${entryId}"]`);
       if (!el) return;
       el.scrollIntoView({ behavior: "smooth", block: "center" });
       el.classList.add("ring-2", "ring-violet-500");
       setTimeout(() => el.classList.remove("ring-2", "ring-violet-500"), 1500);
-    }, 50);
+    }, 80);
   }
 
   async function startGapInterview(category: string) {
@@ -308,130 +307,161 @@ export default function SelfMapPage() {
 
   const freshIds = new Set(entries.filter((e) => !baselineIds.has(e.id)).map((e) => e.id));
 
+  const isInterview = pageMode === "interview";
+  const isCanvas = pageMode === "canvas";
+
+  function handleNodeClick(entryId: string) {
+    setPageMode("interview");
+    setTimeout(() => scrollToEntry(entryId), 0);
+  }
+
   return (
-    <div className="flex flex-col md:flex-row h-[calc(100vh-4rem)] md:h-screen overflow-hidden">
-      {/* Mobile tab bar */}
-      <div className="md:hidden flex shrink-0 border-b border-border bg-surface">
-        {(["chat", "map"] as const).map((tab) => (
+    <div className="flex flex-col h-[calc(100vh-4rem)] md:h-screen overflow-hidden">
+      {/* Top bar — page mode toggle (replaces old mobile chat/map tabs) */}
+      <div className="shrink-0 border-b border-border bg-surface px-4 py-2.5 flex items-center justify-between gap-3">
+        <h1 className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <Brain size={16} className="text-violet-600" />
+          Self Map
+        </h1>
+        <div className="inline-flex items-center rounded-md border border-border bg-canvas p-0.5 text-xs">
           <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
-              activeTab === tab ? "text-violet-600 border-b-2 border-violet-600" : "text-muted"
+            onClick={() => setPageMode("interview")}
+            className={`px-3 py-1 rounded transition-colors flex items-center gap-1.5 ${
+              isInterview ? "bg-violet-600 text-white" : "text-muted hover:text-foreground"
             }`}
           >
-            {tab === "chat" ? "인터뷰" : "Self Map"}
+            <MessageSquare size={12} />
+            인터뷰
           </button>
-        ))}
+          <button
+            onClick={() => setPageMode("canvas")}
+            className={`px-3 py-1 rounded transition-colors flex items-center gap-1.5 ${
+              isCanvas ? "bg-violet-600 text-white" : "text-muted hover:text-foreground"
+            }`}
+          >
+            <Network size={12} />
+            캔버스
+          </button>
+        </div>
       </div>
 
-      {/* Chat panel */}
-      <div className={`flex-col flex-1 min-h-0 border-r border-border ${activeTab === "map" ? "hidden md:flex" : "flex"}`}>
-        <div className="flex items-center gap-2 px-5 py-4 border-b border-border bg-surface">
-          <Brain size={18} className="text-violet-600" />
-          <h1 className="font-semibold text-foreground">Self Insight Agent</h1>
-          <span className="text-xs text-muted ml-1">— 나를 이해하는 인터뷰</span>
-          {started && (
-            <button
-              onClick={endSession}
-              disabled={ending}
-              className="ml-auto text-xs text-muted hover:text-violet-600 disabled:opacity-40 transition-colors"
-            >
-              {ending ? "저장 중…" : "오늘은 여기까지"}
-            </button>
+      {/* Main row */}
+      <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden">
+        {/* Left main panel */}
+        {/* - interview mode: chat (mobile + desktop). */}
+        {/* - canvas mode (desktop only): node map fills the main area. */}
+        {/*   On mobile in canvas mode, the node map renders inline in the side */}
+        {/*   panel below Identity/Tension/Gap so a single column stays scannable. */}
+        <div
+          className={`flex-col flex-1 min-h-0 md:border-r md:border-border ${
+            isInterview ? "flex" : "hidden md:flex"
+          }`}
+        >
+          {isInterview && (
+            <>
+              <div className="flex items-center gap-2 px-5 py-4 border-b border-border bg-surface">
+                <Brain size={18} className="text-violet-600" />
+                <h2 className="font-semibold text-foreground">Self Insight Agent</h2>
+                <span className="text-xs text-muted ml-1">— 나를 이해하는 인터뷰</span>
+                {started && (
+                  <button
+                    onClick={endSession}
+                    disabled={ending}
+                    className="ml-auto text-xs text-muted hover:text-violet-600 disabled:opacity-40 transition-colors"
+                  >
+                    {ending ? "저장 중…" : "오늘은 여기까지"}
+                  </button>
+                )}
+              </div>
+
+              {modeHintLine && started && (
+                <div className="px-5 py-2 text-xs text-violet-600 bg-violet-50/60 border-b border-violet-100">
+                  {modeHintLine}
+                </div>
+              )}
+
+              <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 bg-canvas">
+                {!started && (
+                  <div className="flex flex-col items-center justify-center h-full space-y-4 text-center">
+                    <Brain size={40} className="text-violet-400 opacity-60" />
+                    <div>
+                      <p className="text-sm text-foreground font-medium">Self Insight Agent와 대화를 시작하세요</p>
+                      <p className="text-xs text-muted mt-1">관심사, 강점, 몰입 경험, 혐오, 네트워크를 탐색합니다</p>
+                    </div>
+                    <button
+                      onClick={() => startSession()}
+                      disabled={opening}
+                      className="rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-50 transition-colors flex items-center gap-2"
+                    >
+                      {opening && <Loader2 size={14} className="animate-spin" />}
+                      인터뷰 시작
+                    </button>
+                  </div>
+                )}
+
+                {messages.map((msg, i) => (
+                  <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                    <div
+                      className={`max-w-[80%] rounded-xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
+                        msg.role === "user"
+                          ? "bg-violet-600 text-white"
+                          : "bg-surface text-body border border-border shadow-sm"
+                      }`}
+                    >
+                      {msg.content || <span className="animate-pulse">▋</span>}
+                    </div>
+                  </div>
+                ))}
+                <div ref={bottomRef} />
+              </div>
+
+              {started && (
+                <div className="px-4 py-3 border-t border-border bg-surface">
+                  <form
+                    onSubmit={(e) => { e.preventDefault(); if (input.trim() && !streaming) sendMessage(input); }}
+                    className="flex gap-2"
+                  >
+                    <input
+                      ref={inputRef}
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      placeholder="답변을 입력하세요..."
+                      disabled={streaming}
+                      className="flex-1 rounded-lg border border-border bg-canvas px-4 py-2.5 text-sm placeholder:text-subtle focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50"
+                    />
+                    <button
+                      type="submit"
+                      disabled={streaming || !input.trim()}
+                      className="rounded-lg bg-violet-600 px-4 py-2.5 text-white hover:bg-violet-500 disabled:opacity-40 transition-colors"
+                    >
+                      <Send size={16} />
+                    </button>
+                  </form>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Desktop canvas mode: node map fills the main area */}
+          {isCanvas && (
+            <div className="hidden md:flex flex-1 min-h-0 p-4 bg-canvas">
+              <NodeMap refreshSignal={graphSignal} onNodeClick={handleNodeClick} />
+            </div>
           )}
         </div>
 
-        {modeHintLine && started && (
-          <div className="px-5 py-2 text-xs text-violet-600 bg-violet-50/60 border-b border-violet-100">
-            {modeHintLine}
-          </div>
-        )}
-
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 bg-canvas">
-          {!started && (
-            <div className="flex flex-col items-center justify-center h-full space-y-4 text-center">
-              <Brain size={40} className="text-violet-400 opacity-60" />
-              <div>
-                <p className="text-sm text-foreground font-medium">Self Insight Agent와 대화를 시작하세요</p>
-                <p className="text-xs text-muted mt-1">관심사, 강점, 몰입 경험, 혐오, 네트워크를 탐색합니다</p>
-              </div>
-              <button
-                onClick={() => startSession()}
-                disabled={opening}
-                className="rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-50 transition-colors flex items-center gap-2"
-              >
-                {opening && <Loader2 size={14} className="animate-spin" />}
-                인터뷰 시작
-              </button>
-            </div>
-          )}
-
-          {messages.map((msg, i) => (
-            <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-              <div
-                className={`max-w-[80%] rounded-xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
-                  msg.role === "user"
-                    ? "bg-violet-600 text-white"
-                    : "bg-surface text-body border border-border shadow-sm"
-                }`}
-              >
-                {msg.content || <span className="animate-pulse">▋</span>}
-              </div>
-            </div>
-          ))}
-          <div ref={bottomRef} />
-        </div>
-
-        {started && (
-          <div className="px-4 py-3 border-t border-border bg-surface">
-            <form
-              onSubmit={(e) => { e.preventDefault(); if (input.trim() && !streaming) sendMessage(input); }}
-              className="flex gap-2"
-            >
-              <input
-                ref={inputRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="답변을 입력하세요..."
-                disabled={streaming}
-                className="flex-1 rounded-lg border border-border bg-canvas px-4 py-2.5 text-sm placeholder:text-subtle focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50"
-              />
-              <button
-                type="submit"
-                disabled={streaming || !input.trim()}
-                className="rounded-lg bg-violet-600 px-4 py-2.5 text-white hover:bg-violet-500 disabled:opacity-40 transition-colors"
-              >
-                <Send size={16} />
-              </button>
-            </form>
-          </div>
-        )}
-      </div>
-
-      {/* Self Map panel */}
-      <div
-        ref={mapPanelRef}
-        className={`flex-col overflow-y-auto bg-surface md:w-96 lg:w-[28rem] xl:w-[32rem] md:shrink-0 ${activeTab === "chat" ? "hidden md:flex" : "flex flex-1"}`}
-      >
-        <div className="flex items-center justify-between px-4 py-4 border-b border-border">
-          <h2 className="text-sm font-semibold text-foreground">Self Map</h2>
-          <div className="flex items-center gap-2">
-            <div className="inline-flex items-center rounded-md border border-border bg-canvas p-0.5 text-[11px]">
-              {(["list", "map"] as const).map((v) => (
-                <button
-                  key={v}
-                  onClick={() => setSelfMapView(v)}
-                  className={`px-2 py-0.5 rounded transition-colors ${
-                    selfMapView === v
-                      ? "bg-violet-600 text-white"
-                      : "text-muted hover:text-foreground"
-                  }`}
-                >
-                  {v === "list" ? "List" : "Map"}
-                </button>
-              ))}
-            </div>
+        {/* Right side panel — Identity/Tension/Gap + card list (+mobile canvas: NodeMap inline) */}
+        {/* - On mobile, hidden in interview mode (chat takes the whole screen). */}
+        {/* - On mobile in canvas mode, takes the full width with NodeMap inline. */}
+        <div
+          className={`flex-col overflow-y-auto bg-surface md:w-96 lg:w-[28rem] xl:w-[32rem] md:shrink-0 ${
+            isInterview ? "hidden md:flex" : "flex flex-1"
+          }`}
+        >
+          <div className="flex items-center justify-between px-4 py-4 border-b border-border">
+            <h2 className="text-sm font-semibold text-foreground">
+              {isCanvas ? "Self Map · 캔버스" : "Self Map"}
+            </h2>
             <button
               onClick={async () => {
                 await fetchEntries();
@@ -443,95 +473,92 @@ export default function SelfMapPage() {
               <RefreshCw size={14} />
             </button>
           </div>
-        </div>
 
-        <div className="px-4 py-4 space-y-4">
-          <FounderIdentityCard
-            state={synthesisState}
-            entries={entries}
-            refreshing={refreshingSynthesis}
-            onRefresh={refreshSynthesis}
-            onPatchStatement={patchSynthesisStatement}
-            onCiteClick={scrollToEntry}
-          />
-
-          {synthesisState.status === "ready" && (
-            <TensionGapSide
-              synthesis={synthesisState.synthesis}
+          <div className="px-4 py-4 space-y-4">
+            <FounderIdentityCard
+              state={synthesisState}
               entries={entries}
+              refreshing={refreshingSynthesis}
+              onRefresh={refreshSynthesis}
+              onPatchStatement={patchSynthesisStatement}
               onCiteClick={scrollToEntry}
-              onDismissTension={dismissTension}
-              onStartGapInterview={startGapInterview}
             />
-          )}
 
-          {selfMapView === "map" && (
-            <NodeMap
-              refreshSignal={graphSignal}
-              onNodeClick={(entryId) => {
-                setSelfMapView("list");
-                scrollToEntry(entryId);
-              }}
-            />
-          )}
+            {synthesisState.status === "ready" && (
+              <TensionGapSide
+                synthesis={synthesisState.synthesis}
+                entries={entries}
+                onCiteClick={scrollToEntry}
+                onDismissTension={dismissTension}
+                onStartGapInterview={startGapInterview}
+              />
+            )}
 
-          {selfMapView === "list" && entries.length === 0 && (
-            <p className="text-xs text-subtle text-center py-8">대화하면 여기에 자동으로 정리됩니다</p>
-          )}
-
-          {selfMapView === "list" && Object.entries(grouped).map(([cat, items]) => {
-            const meta = CATEGORY_LABELS[cat] ?? CATEGORY_LABELS.other;
-            return (
-              <div key={cat}>
-                <div className="flex items-center gap-1.5 mb-2">
-                  <Badge variant={meta.color}>{meta.label}</Badge>
-                  <span className="text-[10px] text-subtle">{items.length}</span>
-                </div>
-                <div className="space-y-2">
-                  {items.map((e) => {
-                    const isFresh = freshIds.has(e.id);
-                    return (
-                      <Card
-                        key={e.id}
-                        data-entry-id={e.id}
-                        className={`p-3 relative transition-shadow ${isFresh ? "ring-1 ring-violet-200" : ""}`}
-                      >
-                        {isFresh && (
-                          <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-violet-500" />
-                        )}
-                        <div className="flex items-start justify-between gap-2 mb-1">
-                          <p className="text-xs text-muted flex-1">{e.question}</p>
-                          <div className="flex gap-0.5 shrink-0">
-                            <button
-                              onClick={() => openEdit(e)}
-                              className="p-1 text-subtle hover:text-violet-600 transition-colors rounded"
-                            >
-                              <Pencil size={12} />
-                            </button>
-                            <button
-                              onClick={() => deleteEntry(e.id)}
-                              className="p-1 text-subtle hover:text-red-500 transition-colors rounded"
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          </div>
-                        </div>
-                        <p className="text-sm text-body">{e.answer}</p>
-                        <div className="mt-2 flex flex-wrap items-center gap-1">
-                          {e.tags && e.tags.split(",").filter(Boolean).map((t) => (
-                            <span key={t} className="text-xs bg-wash text-tertiary rounded px-1.5 py-0.5">{t.trim()}</span>
-                          ))}
-                          {isFresh && (
-                            <span className="text-[10px] text-violet-600 ml-auto">이번 대화</span>
-                          )}
-                        </div>
-                      </Card>
-                    );
-                  })}
-                </div>
+            {/* Mobile-only: inline node map under Identity in canvas mode */}
+            {isCanvas && (
+              <div className="md:hidden h-[60vh]">
+                <NodeMap refreshSignal={graphSignal} onNodeClick={handleNodeClick} />
               </div>
-            );
-          })}
+            )}
+
+            {entries.length === 0 && (
+              <p className="text-xs text-subtle text-center py-8">대화하면 여기에 자동으로 정리됩니다</p>
+            )}
+
+            {Object.entries(grouped).map(([cat, items]) => {
+              const meta = CATEGORY_LABELS[cat] ?? CATEGORY_LABELS.other;
+              return (
+                <div key={cat}>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Badge variant={meta.color}>{meta.label}</Badge>
+                    <span className="text-[10px] text-subtle">{items.length}</span>
+                  </div>
+                  <div className="space-y-2">
+                    {items.map((e) => {
+                      const isFresh = freshIds.has(e.id);
+                      return (
+                        <Card
+                          key={e.id}
+                          data-entry-id={e.id}
+                          className={`p-3 relative transition-shadow ${isFresh ? "ring-1 ring-violet-200" : ""}`}
+                        >
+                          {isFresh && (
+                            <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-violet-500" />
+                          )}
+                          <div className="flex items-start justify-between gap-2 mb-1">
+                            <p className="text-xs text-muted flex-1">{e.question}</p>
+                            <div className="flex gap-0.5 shrink-0">
+                              <button
+                                onClick={() => openEdit(e)}
+                                className="p-1 text-subtle hover:text-violet-600 transition-colors rounded"
+                              >
+                                <Pencil size={12} />
+                              </button>
+                              <button
+                                onClick={() => deleteEntry(e.id)}
+                                className="p-1 text-subtle hover:text-red-500 transition-colors rounded"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          </div>
+                          <p className="text-sm text-body">{e.answer}</p>
+                          <div className="mt-2 flex flex-wrap items-center gap-1">
+                            {e.tags && e.tags.split(",").filter(Boolean).map((t) => (
+                              <span key={t} className="text-xs bg-wash text-tertiary rounded px-1.5 py-0.5">{t.trim()}</span>
+                            ))}
+                            {isFresh && (
+                              <span className="text-[10px] text-violet-600 ml-auto">이번 대화</span>
+                            )}
+                          </div>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
