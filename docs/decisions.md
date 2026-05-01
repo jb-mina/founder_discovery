@@ -229,3 +229,11 @@
 **버리는 것**: "정체성 캔버스" 비유가 한 PR에 안 닫힘. UI 카피를 phase 1에서 신중히 — "Identity 카드 / 긴장과 갭"으로만 표현하고 "캔버스" 단어는 노드맵 도입 시 노출.
 
 ---
+
+## Self Map 노드맵 — Tag 엔티티 대신 JSON map, cytoscape.js 채택
+**날짜**: 2026-05-01
+**결정**: 노드맵 phase 2 도입. 별 Tag 엔티티(N:M)를 만들지 않고 `SelfMapSynthesis.entryTagsByEntryId` JSON 컬럼 한 개로 시작. 그래프 라이브러리는 `cytoscape.js + react-cytoscapejs + cose-bilkent` (force-directed 클러스터 레이아웃). 그래프 엣지 = 사용자 수동 `SelfMapEntry.tags`(콤마)와 Synthesizer 자동 entryTagsByEntryId의 union 교집합 ≥ 1.
+**이유**: 노드맵 첫 릴리스에 Tag별 메타(별명·색깔·정의)는 불필요. JSON map은 마이그레이션 1줄(ADD COLUMN), 후에 사용 패턴을 보고 Tag 엔티티로 정규화 가능. cytoscape는 cose-bilkent 클러스터링이 사용자 비전("자연스럽게 클러스터 형성")에 직결 — D3 직접·react-force-graph보다 ROI 높음. 두 출처를 union하는 이유는 LLM 추출이 약한 entry를 사용자가 보완하고, 사용자가 안 적은 개념을 LLM이 보완하는 양방향 시너지.
+**버리는 것**: Tag별 메타데이터(태그 정의·색깔). 시간이 지나 동일 태그 변형(`자동화` vs `자동화 도구`)이 누적되면 정규화 스크립트 필요할 수 있음 — 그 시점에 Tag 엔티티 마이그레이션 검토.
+
+---

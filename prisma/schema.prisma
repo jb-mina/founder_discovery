@@ -180,6 +180,10 @@ model SelfMapSynthesis {
   tensions              String   @default("[]")
   gaps                  String   @default("[]")
   dismissedTensionKeys  String   @default("[]")
+  // Per-entry tags emitted by the Synthesizer for the node map. Shape:
+  // { [entryId]: string[] }. Combined with user-edited SelfMapEntry.tags
+  // (comma-separated) to compute graph edges (shared tag = edge).
+  entryTagsByEntryId    String   @default("{}")
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 }

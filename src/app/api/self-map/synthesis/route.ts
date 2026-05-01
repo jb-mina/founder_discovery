@@ -52,6 +52,7 @@ export async function GET() {
     citedEntryIds: output.citedEntryIds,
     tensions: output.tensions,
     gaps: output.gaps,
+    entryTagsByEntryId: output.entryTagsByEntryId,
   });
 
   // Carry forward user state.

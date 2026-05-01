@@ -312,6 +312,7 @@
   tensions: { entryIdA, entryIdB, description }[],  // 최대 3개
   gaps: { category: CoreCategory, reason }[],       // 최대 3개
   threadToResume?: { summary, relatedEntryIds }[],  // 종료 호출에서만, 최대 2개
+  entryTagsByEntryId: { [entryId]: string[] },      // 노드맵 엣지 산출용, 각 0~7개 (2026-05-01)
 }
 ```
 
