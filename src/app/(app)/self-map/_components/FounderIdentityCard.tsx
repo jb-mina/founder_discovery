@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Pencil, RefreshCw, Sparkles } from "lucide-react";
+import { Loader2, Pencil, Sparkles } from "lucide-react";
 
 type SelfMapEntry = { id: string; question: string; answer: string };
 
@@ -17,24 +17,24 @@ export type Synthesis = {
   updatedAt: string;
 };
 
+// `cache_miss`는 직전 합성도 없는 상태(첫 합성 전). previousSynthesis가 있으면
+// page.tsx에서 status=ready + outdated=true로 변환해 카드를 그리되 `이전 합성`
+// 배지를 띄운다 — UI 컴포넌트는 ready만 다루면 되도록.
 export type SynthesisState =
   | { status: "loading" }
   | { status: "not_ready"; entryCount: number; threshold: number }
-  | { status: "ready"; synthesis: Synthesis }
+  | { status: "cache_miss" }
+  | { status: "ready"; synthesis: Synthesis; outdated: boolean }
   | { status: "error"; message: string };
 
 export function FounderIdentityCard({
   state,
   entries,
-  refreshing,
-  onRefresh,
   onPatchStatement,
   onCiteClick,
 }: {
   state: SynthesisState;
   entries: SelfMapEntry[];
-  refreshing: boolean;
-  onRefresh: () => void;
   onPatchStatement: (id: string, value: string | null) => Promise<void>;
   onCiteClick?: (entryId: string) => void;
 }) {
@@ -47,7 +47,7 @@ export function FounderIdentityCard({
       <div className="rounded-xl border border-violet-200 bg-violet-50/50 p-4">
         <div className="flex items-center gap-2 text-xs text-violet-700">
           <Loader2 size={14} className="animate-spin" />
-          정체성 합성 중…
+          요약 불러오는 중…
         </div>
       </div>
     );
@@ -63,8 +63,22 @@ export function FounderIdentityCard({
         </div>
         <p className="text-xs text-muted">
           {remaining > 0
-            ? `${remaining}개 더 답변하면 정체성 카드가 생겨요.`
-            : "곧 정체성 카드가 생겨요."}
+            ? `${remaining}개 더 답변하면 요약을 정리할 수 있어요.`
+            : "곧 요약을 정리할 수 있어요."}
+        </p>
+      </div>
+    );
+  }
+
+  if (state.status === "cache_miss") {
+    return (
+      <div className="rounded-xl border border-dashed border-violet-200 bg-violet-50/30 p-4">
+        <div className="flex items-center gap-2 mb-1.5">
+          <Sparkles size={14} className="text-violet-500" />
+          <h3 className="text-sm font-semibold text-foreground">Founder Identity</h3>
+        </div>
+        <p className="text-xs text-muted">
+          상단 <span className="text-violet-600 font-medium">✨ 요약보기</span> 버튼을 누르면 인사이트를 정리해 드려요.
         </p>
       </div>
     );
@@ -79,6 +93,7 @@ export function FounderIdentityCard({
   }
 
   const synthesis = state.synthesis;
+  const outdated = state.outdated;
   const displayed = synthesis.userEditedStatement ?? synthesis.identityStatement;
   const isEdited = synthesis.userEditedStatement != null;
 
@@ -99,23 +114,20 @@ export function FounderIdentityCard({
   }
 
   return (
-    <div className="rounded-xl border border-violet-200 bg-violet-50/50 p-4">
+    <div className={`rounded-xl border p-4 ${outdated ? "border-amber-200 bg-amber-50/40" : "border-violet-200 bg-violet-50/50"}`}>
       <div className="flex items-start justify-between mb-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Sparkles size={14} className="text-violet-600" />
           <h3 className="text-sm font-semibold text-foreground">Founder Identity</h3>
           <span className="text-[10px] text-muted">(가설)</span>
           {isEdited && <span className="text-[10px] text-violet-600">편집됨</span>}
+          {outdated && (
+            <span className="text-[10px] text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
+              이전 요약 — 상단 ✨로 갱신
+            </span>
+          )}
         </div>
         <div className="flex gap-1">
-          <button
-            onClick={onRefresh}
-            disabled={refreshing}
-            title="다시 합성"
-            className="p-1 text-subtle hover:text-violet-600 disabled:opacity-40 transition-colors rounded"
-          >
-            {refreshing ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
-          </button>
           {!editing && (
             <button
               onClick={startEdit}
