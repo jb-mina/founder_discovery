@@ -767,33 +767,33 @@ export default function ProblemsPage() {
         <div className="flex items-center gap-2">
           <Crosshair size={20} className="text-violet-600" />
           <h1 className="text-lg font-semibold text-foreground">Problem Universe</h1>
-          <span className="text-sm text-muted">{cards.length}개 문제 카드</span>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-1 items-center">
           <button
             onClick={() => setShowScout(true)}
-            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-secondary hover:bg-wash transition-colors"
+            className="flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-sm font-medium text-white hover:bg-violet-500 transition-colors"
           >
             <Telescope size={14} />
             Scout
           </button>
           <button
             onClick={() => setShowAdd(true)}
-            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-secondary hover:bg-wash transition-colors"
+            className="flex items-center gap-1.5 rounded-lg border border-transparent px-3 py-2 text-sm text-secondary hover:bg-wash transition-colors"
           >
             <Plus size={14} />
             직접 추가
           </button>
-          <button
-            onClick={getRecommendations}
-            disabled={loadingRecs}
-            className="flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-40 transition-colors"
-          >
-            {loadingRecs ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-            Fit Judge 추천받기
-          </button>
         </div>
       </div>
+
+      <button
+        onClick={getRecommendations}
+        disabled={loadingRecs}
+        className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-violet-300 bg-violet-50/40 px-4 py-2.5 text-sm font-medium text-violet-700 hover:bg-violet-100 disabled:opacity-40 transition-colors"
+      >
+        {loadingRecs ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+        내게 맞는 문제 추천받기
+      </button>
 
       {recommendations.length > 0 && (
         <div className="space-y-3">
@@ -889,9 +889,11 @@ export default function ProblemsPage() {
               초기화
             </button>
           )}
-          {hasActiveFilters && (
-            <span className="text-xs text-muted">{filtered.length}개 표시</span>
-          )}
+          <span className="text-xs text-muted ml-auto">
+            {hasActiveFilters
+              ? `${filtered.length}개 표시 (총 ${cards.length}개)`
+              : `${cards.length}개 문제 카드`}
+          </span>
         </div>
       </div>
 
