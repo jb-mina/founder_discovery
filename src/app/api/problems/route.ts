@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { normalizeProblemCategory } from "@/lib/problem-categories";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -23,6 +24,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
+  if (typeof body.category === "string") {
+    body.category = normalizeProblemCategory(body.category);
+  }
   const card = await prisma.problemCard.create({ data: body });
   return NextResponse.json(card);
 }

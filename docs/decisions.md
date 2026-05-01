@@ -189,3 +189,11 @@
 **버리는 것**: JSON 구조화의 쿼리·UI 일관성. 대신 텍스트 자유도로 사용자가 자기 방식대로 적도록 허용.
 
 ---
+
+## ProblemCard 카테고리는 클라이언트 enum + Scout 출력 강제
+**날짜**: 2026-05-01
+**결정**: ProblemCard.category는 Prisma 스키마는 그대로 `String @default("")`로 두되, `lib/problem-categories.ts`의 33개 enum(9그룹)을 단일 진실로 둔다. Scout 시스템 프롬프트에 enum 명시 + 미일치 시 빈 문자열 강제, ScoutModal·POST·PATCH 라우트에서 이중 가드. ScoutModal에는 enum 외 도메인을 위한 자유 chip 입력을 추가하되 자유 chip은 query에만 흘러가고 출력 enum은 강제 유지.
+**이유**: 기존엔 Scout LLM이 자유 텍스트로 category를 채워 "Mental Health / AI", "Ghost Kitchen" 같은 즉흥 라벨이 누적, Problem Universe 필터가 오염되어 있었음. 입구만 닫고 자연 감쇠를 노릴 수도 있었으나 1회 정리 스크립트(`scripts/normalize-categories.ts`)로 기존 더러운 값을 enum에 매핑하고 매핑 불가는 빈 문자열로 폴백 — 사용자 수동 재분류 대상. enum 미일치 시 LLM에게 "가장 가까운 enum 강제 매칭"을 시키지 않은 이유는 부적합 매칭으로 분류 어색해질 위험 회피.
+**버리는 것**: enum 외 도메인의 출력 카테고리(빈 문자열로 들어옴). 추후 enum 확장 시 정리 스크립트만 한 번 더 돌려 정합 유지.
+
+---

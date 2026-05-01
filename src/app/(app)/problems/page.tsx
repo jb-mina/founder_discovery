@@ -5,6 +5,11 @@ import Link from "next/link";
 import { Plus, Search, Crosshair, Loader2, X, ExternalLink, Telescope, Star, Sparkles, ArrowRight, Trash2, Pencil } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  PROBLEM_CATEGORIES,
+  PROBLEM_CATEGORY_GROUPS,
+  normalizeProblemCategory,
+} from "@/lib/problem-categories";
 
 type ProblemCard = {
   id: string;
@@ -200,7 +205,20 @@ function CardFormModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-muted mb-1 block">카테고리</label>
-              <input value={form.category} onChange={set("category")} className="w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+              <select
+                value={PROBLEM_CATEGORIES.includes(form.category) ? form.category : ""}
+                onChange={set("category")}
+                className="w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+              >
+                <option value="">선택 안 함</option>
+                {PROBLEM_CATEGORY_GROUPS.map((group) => (
+                  <optgroup key={group.id} label={group.label}>
+                    {group.items.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
             </div>
             <div>
               <label className="text-xs text-muted mb-1 block">단계</label>
@@ -237,18 +255,13 @@ const SCOUT_SOURCES = [
   { id: "news", label: "투자 뉴스" },
 ];
 
-const SCOUT_TOPICS = [
-  "건강/헬스케어", "생산성", "교육", "반려동물", "재무/핀테크",
-  "커리어", "식품/음식", "여행", "B2B/SaaS", "개발자도구",
-  "멘탈헬스", "환경/지속가능성", "쇼핑", "엔터테인먼트",
-];
-
-function buildScoutQuery(sources: string[], topics: string[], context: string): string {
+function buildScoutQuery(sources: string[], topics: string[], customTopics: string[], context: string): string {
   const srcLabel = sources.map(s =>
     s === "producthunt" ? "Product Hunt" :
     s === "appstore" ? "App Store 앱스토어" : "투자 뉴스"
   ).join(", ");
-  const topicStr = topics.length > 0 ? topics.join(", ") + " 관련 " : "";
+  const allTopics = [...topics, ...customTopics];
+  const topicStr = allTopics.length > 0 ? allTopics.join(", ") + " 관련 " : "";
   const ctxStr = context.trim() ? ` (맥락: ${context.trim()})` : "";
   return `${srcLabel}에서 ${topicStr}문제 5개${ctxStr}`;
 }
@@ -256,6 +269,8 @@ function buildScoutQuery(sources: string[], topics: string[], context: string): 
 function ScoutModal({ onClose, onImport }: { onClose: () => void; onImport: (cards: Partial<ProblemCard>[]) => void }) {
   const [sources, setSources] = useState<Set<string>>(new Set(["producthunt"]));
   const [topics, setTopics] = useState<Set<string>>(new Set());
+  const [customTopics, setCustomTopics] = useState<string[]>([]);
+  const [customInput, setCustomInput] = useState("");
   const [context, setContext] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [stage, setStage] = useState<string | null>(null);
@@ -270,12 +285,25 @@ function ScoutModal({ onClose, onImport }: { onClose: () => void; onImport: (car
   function toggleTopic(t: string) {
     setTopics(prev => { const n = new Set(prev); n.has(t) ? n.delete(t) : n.add(t); return n; });
   }
+  function addCustomTopic() {
+    const trimmed = customInput.trim();
+    if (!trimmed) return;
+    if (customTopics.includes(trimmed) || topics.has(trimmed)) {
+      setCustomInput("");
+      return;
+    }
+    setCustomTopics((prev) => [...prev, trimmed]);
+    setCustomInput("");
+  }
+  function removeCustomTopic(t: string) {
+    setCustomTopics((prev) => prev.filter((x) => x !== t));
+  }
 
   const canRun = sources.size > 0 && !streaming;
 
   async function runScout() {
     if (!canRun) return;
-    const query = buildScoutQuery([...sources], [...topics], context);
+    const query = buildScoutQuery([...sources], [...topics], customTopics, context);
     setStreaming(true);
     setStage(null);
     setResult("");
@@ -305,9 +333,13 @@ function ScoutModal({ onClose, onImport }: { onClose: () => void; onImport: (car
     try {
       const jsonMatch = cleanText.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
-        const cards = JSON.parse(jsonMatch[0]);
+        const rawCards = JSON.parse(jsonMatch[0]) as Partial<ProblemCard>[];
+        const cards = rawCards.map((c) => ({
+          ...c,
+          category: normalizeProblemCategory(c.category),
+        }));
         setParsed(cards);
-        setSelected(new Set(cards.map((_: unknown, i: number) => i)));
+        setSelected(new Set(cards.map((_, i) => i)));
       } else setParseError(true);
     } catch { setParseError(true); }
   }
@@ -346,18 +378,56 @@ function ScoutModal({ onClose, onImport }: { onClose: () => void; onImport: (car
             </div>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-3">
             <p className="text-xs font-medium text-muted">관심 분야 <span className="text-subtle font-normal">(복수 선택)</span></p>
-            <div className="flex flex-wrap gap-2">
-              {SCOUT_TOPICS.map(t => (
-                <button
-                  key={t}
-                  onClick={() => toggleTopic(t)}
-                  className={`text-xs rounded-full px-3 py-1.5 border transition-colors ${topics.has(t) ? "bg-violet-600 border-violet-600 text-white" : "bg-wash border-transparent hover:bg-neutral-200 text-tertiary"}`}
-                >
-                  {t}
-                </button>
+            <div className="space-y-3">
+              {PROBLEM_CATEGORY_GROUPS.map((group) => (
+                <div key={group.id} className="space-y-1.5">
+                  <p className="text-[11px] text-subtle">{group.label}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {group.items.map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => toggleTopic(t)}
+                        className={`text-xs rounded-full px-3 py-1.5 border transition-colors ${topics.has(t) ? "bg-violet-600 border-violet-600 text-white" : "bg-wash border-transparent hover:bg-neutral-200 text-tertiary"}`}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ))}
+            </div>
+            <div className="space-y-1.5 pt-1">
+              <p className="text-[11px] text-subtle">직접 입력 <span className="text-subtle font-normal">(목록에 없는 분야)</span></p>
+              <div className="flex gap-2">
+                <input
+                  value={customInput}
+                  onChange={(e) => setCustomInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCustomTopic(); } }}
+                  placeholder='예: "푸드테크", "프롭테크"'
+                  className="flex-1 rounded-lg border border-border bg-canvas px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-violet-500"
+                />
+                <button
+                  onClick={addCustomTopic}
+                  disabled={!customInput.trim()}
+                  className="rounded-lg border border-border px-3 py-2 text-xs text-secondary hover:bg-canvas disabled:opacity-40"
+                >
+                  추가
+                </button>
+              </div>
+              {customTopics.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {customTopics.map((t) => (
+                    <span key={t} className="inline-flex items-center gap-1 text-xs rounded-full px-3 py-1 border border-violet-300 bg-violet-50 text-violet-700">
+                      {t}
+                      <button onClick={() => removeCustomTopic(t)} aria-label={`${t} 제거`} className="hover:text-violet-900">
+                        <X size={10} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
