@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Send, Trash2, Brain, RefreshCw, Pencil, X, Loader2, MessageSquare, Network } from "lucide-react";
+import { Send, Trash2, Brain, RefreshCw, Pencil, X, Loader2, MessageSquare, Network, Sparkles } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -83,16 +83,31 @@ export default function SelfMapPage() {
     });
   }, []);
 
+  // GET은 cache-only — LLM 호출은 사용자 trigger ("요약보기" 버튼)에서만 일어남.
+  // cache_miss + previousSynthesis 있으면 옛 카드를 outdated 배지와 함께 보여주고,
+  // previousSynthesis 없으면 placeholder + 상단 trigger 안내.
   const loadSynthesis = useCallback(async () => {
     try {
       const res = await fetch("/api/self-map/synthesis");
       if (!res.ok) throw new Error(`status ${res.status}`);
       const json = await res.json();
-      if (!json.ready) {
-        setSynthesisState({ status: "not_ready", entryCount: json.entryCount, threshold: json.threshold });
-      } else {
-        setSynthesisState({ status: "ready", synthesis: json.synthesis as Synthesis });
+      if (json.ready) {
+        setSynthesisState({ status: "ready", synthesis: json.synthesis as Synthesis, outdated: false });
+        return;
       }
+      if (json.reason === "not_enough_entries") {
+        setSynthesisState({ status: "not_ready", entryCount: json.entryCount, threshold: json.threshold });
+        return;
+      }
+      if (json.reason === "cache_miss") {
+        if (json.previousSynthesis) {
+          setSynthesisState({ status: "ready", synthesis: json.previousSynthesis as Synthesis, outdated: true });
+        } else {
+          setSynthesisState({ status: "cache_miss" });
+        }
+        return;
+      }
+      setSynthesisState({ status: "error", message: "unexpected response" });
     } catch (e) {
       setSynthesisState({ status: "error", message: (e as Error).message });
     }
@@ -229,7 +244,7 @@ export default function SelfMapPage() {
       if (!json.ready) {
         setSynthesisState({ status: "not_ready", entryCount: json.entryCount, threshold: json.threshold });
       } else {
-        setSynthesisState({ status: "ready", synthesis: json.synthesis as Synthesis });
+        setSynthesisState({ status: "ready", synthesis: json.synthesis as Synthesis, outdated: false });
       }
     } catch (e) {
       setSynthesisState({ status: "error", message: (e as Error).message });
@@ -246,7 +261,7 @@ export default function SelfMapPage() {
     });
     if (!res.ok) throw new Error(`status ${res.status}`);
     const json = await res.json();
-    setSynthesisState({ status: "ready", synthesis: json.synthesis as Synthesis });
+    setSynthesisState({ status: "ready", synthesis: json.synthesis as Synthesis, outdated: false });
   }
 
   async function dismissTension(key: string) {
@@ -258,7 +273,7 @@ export default function SelfMapPage() {
     });
     if (!res.ok) return;
     const json = await res.json();
-    setSynthesisState({ status: "ready", synthesis: json.synthesis as Synthesis });
+    setSynthesisState({ status: "ready", synthesis: json.synthesis as Synthesis, outdated: false });
   }
 
   function scrollToEntry(entryId: string) {
@@ -345,7 +360,25 @@ export default function SelfMapPage() {
             캔버스
           </button>
         </div>
-        <div className="justify-self-end" />
+        <div className="justify-self-end">
+          <button
+            onClick={refreshSynthesis}
+            disabled={refreshingSynthesis || entries.length < 3}
+            title={
+              entries.length < 3
+                ? "엔트리가 3개 이상일 때 요약을 정리할 수 있어요"
+                : "AI로 정체성·tension·gap을 다시 정리"
+            }
+            className="rounded-md bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-500 disabled:bg-violet-300 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
+          >
+            {refreshingSynthesis ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : (
+              <Sparkles size={12} />
+            )}
+            요약보기
+          </button>
+        </div>
       </div>
 
       {/* Main row */}
@@ -482,8 +515,6 @@ export default function SelfMapPage() {
             <FounderIdentityCard
               state={synthesisState}
               entries={entries}
-              refreshing={refreshingSynthesis}
-              onRefresh={refreshSynthesis}
               onPatchStatement={patchSynthesisStatement}
               onCiteClick={scrollToEntry}
             />

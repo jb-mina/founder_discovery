@@ -6,21 +6,22 @@ import {
   listSelfMapEntries,
   parseSynthesis,
   patchSynthesis,
-  upsertSynthesis,
 } from "@/lib/db/self-map";
-import { runSelfMapSynthesizer } from "@/lib/agents/self-map-synthesizer/run";
 import { prisma } from "@/lib/prisma";
 
 const MIN_ENTRIES_FOR_SYNTHESIS = 3;
 
-// GET — Identity Card / Tension+Gap 사이드의 데이터 소스.
-// snapshotKey 기준으로 캐시 hit이면 그대로, miss면 Synthesizer 호출 후 저장.
+// GET — cache-only read. snapshotKey hit이면 캐시 반환, miss이면
+// `cache_miss`로 응답해 클라이언트가 사용자 trigger ("요약보기" 버튼)에서만
+// LLM 합성을 부르도록 한다. 자동 LLM 호출은 의도와 비용 양쪽 모두 어긋나
+// 의도적으로 끊었다 — 합성은 POST /api/self-map/synthesis/refresh로만.
 export async function GET() {
   const entries = await listSelfMapEntries();
 
   if (entries.length < MIN_ENTRIES_FOR_SYNTHESIS) {
     return NextResponse.json({
       ready: false,
+      reason: "not_enough_entries",
       entryCount: entries.length,
       threshold: MIN_ENTRIES_FOR_SYNTHESIS,
     });
@@ -37,37 +38,15 @@ export async function GET() {
     });
   }
 
-  // Cache miss — fetch latest synthesis to carry forward user edits and
-  // dismissed tensions, then re-synthesize against the new snapshot.
+  // Snapshot 변경(엔트리 추가/편집) 후 trigger 전 상태. 직전 합성 결과를 함께
+  // 돌려보내서 placeholder가 아니라 "옛 인사이트 + 새 trigger CTA"를 보일 수 있게.
   const previous = await prisma.selfMapSynthesis.findFirst({ orderBy: { updatedAt: "desc" } });
-  const dismissedTensionKeys = previous ? parseSynthesis(previous).dismissedTensionKeys : [];
-
-  const output = await runSelfMapSynthesizer({
-    entries,
-    dismissedTensionKeys,
-  });
-
-  const row = await upsertSynthesis(snapshotKey, {
-    identityStatement: output.identityStatement,
-    citedEntryIds: output.citedEntryIds,
-    tensions: output.tensions,
-    gaps: output.gaps,
-    entryTagsByEntryId: output.entryTagsByEntryId,
-    clusterMeanings: output.clusterMeanings,
-  });
-
-  // Carry forward user state.
-  const merged = previous
-    ? await patchSynthesis(row.id, {
-        userEditedStatement: previous.userEditedStatement,
-        dismissedTensionKeys,
-      })
-    : row;
 
   return NextResponse.json({
-    ready: true,
-    cached: false,
-    synthesis: parseSynthesis(merged),
+    ready: false,
+    reason: "cache_miss",
+    entryCount: entries.length,
+    previousSynthesis: previous ? parseSynthesis(previous) : null,
   });
 }
 
