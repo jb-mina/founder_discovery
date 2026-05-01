@@ -131,8 +131,16 @@ const VC_TOPIC_MAP: Record<string, string> = {
   육아: "parenting family kids", 가족: "parenting family kids",
 };
 
+function stripSourceLabels(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/투자\s*뉴스/g, "")
+    .replace(/product\s*hunt/g, "")
+    .replace(/app\s*store|앱스토어/g, "");
+}
+
 async function fetchProductHuntPosts(query: string) {
-  const lq = query.toLowerCase();
+  const lq = stripSourceLabels(query);
   const topic = Object.entries(PH_TOPIC_MAP).find(([k]) => lq.includes(k))?.[1];
 
   const gql = `{
@@ -159,7 +167,9 @@ async function fetchProductHuntPosts(query: string) {
     body: JSON.stringify({ query: gql }),
   });
   const data = await res.json();
-  return data.data?.posts?.nodes ?? [];
+  const posts = data.data?.posts?.nodes ?? [];
+  console.log(`[scout] PH ${posts.length} posts, topic: ${topic ?? "none"}`);
+  return posts;
 }
 
 async function fetchAppStorePosts(count = 50) {
@@ -176,7 +186,7 @@ async function fetchAppStorePosts(count = 50) {
 }
 
 async function fetchVCNews(query: string) {
-  const lq = query.toLowerCase();
+  const lq = stripSourceLabels(query);
   const topicStr = [...new Set(
     Object.entries(VC_TOPIC_MAP)
       .filter(([k]) => lq.includes(k))
@@ -200,7 +210,7 @@ async function fetchVCNews(query: string) {
   });
   if (!res.ok) throw new Error(`Tavily ${res.status}`);
   const data = await res.json();
-  return (data.results ?? []).map((r: {
+  const results = (data.results ?? []).map((r: {
     title: string; url: string; content: string; raw_content?: string;
   }) => ({
     title: r.title,
@@ -208,6 +218,8 @@ async function fetchVCNews(query: string) {
     content: r.content,
     raw_content: r.raw_content?.slice(0, 1500),
   }));
+  console.log(`[scout] Tavily ${results.length} results, query: "${searchQuery}"`);
+  return results;
 }
 
 export async function POST(req: NextRequest) {
@@ -250,6 +262,7 @@ export async function POST(req: NextRequest) {
             ? `${contextBlock}위 실제 데이터를 기반으로 다음 요청을 처리하세요. 요청에 명시된 관심 분야와 무관한 내용은 건너뜁니다:\n${q}`
             : q;
 
+          console.log(`[scout] contextBlock ${contextBlock.length} chars, query: "${q}"`);
           send("||STAGE||문제 카드 생성 중\n");
 
           const stream = client.messages.stream({

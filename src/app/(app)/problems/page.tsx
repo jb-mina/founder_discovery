@@ -465,6 +465,16 @@ function ScoutModal({ onClose, onImport }: { onClose: () => void; onImport: (car
               응답 파싱에 실패했습니다. 다시 시도해주세요.
             </div>
           )}
+          {!streaming && !parseError && parsed.length === 0 && result && (
+            <div className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2">
+              <p className="font-medium">관련 결과를 찾지 못했어요.</p>
+              <ul className="space-y-0.5 list-disc list-inside text-blue-800/80">
+                <li>다른 데이터 소스(Product Hunt / App Store)도 시도해보세요</li>
+                <li>카테고리를 여러 개 조합하면 검색 폭이 넓어집니다</li>
+                <li>더 일반적인 카테고리(B2B/SaaS, 생산성 등)와 함께 선택해보세요</li>
+              </ul>
+            </div>
+          )}
           {parsed.length > 0 && !streaming && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
