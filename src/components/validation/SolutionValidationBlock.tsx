@@ -3,6 +3,7 @@
 import { useState } from "react";
 import {
   AlertTriangle,
+  CheckCircle2,
   ChevronDown,
   ChevronUp,
   HelpCircle,
@@ -110,69 +111,121 @@ function defaultTab(solution: SolutionBlockData): TabKey {
 export function SolutionValidationBlock({
   solution,
   problemConfirmed,
+  defaultExpanded = true,
   onChanged,
 }: {
   solution: SolutionBlockData;
   problemConfirmed: boolean;
+  defaultExpanded?: boolean;
   onChanged: () => void | Promise<void>;
 }) {
   const [tab, setTab] = useState<TabKey>(() => defaultTab(solution));
-  const [shelving, setShelving] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<SolutionStatus | null>(null);
+  const [expanded, setExpanded] = useState(defaultExpanded);
 
-  async function shelve() {
-    setShelving(true);
+  async function setStatus(next: SolutionStatus) {
+    setPendingStatus(next);
     await fetch(`/api/solution-hypotheses/${solution.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "shelved" }),
+      body: JSON.stringify({ status: next }),
     });
     await onChanged();
-    setShelving(false);
+    setPendingStatus(null);
   }
 
   const status = solution.status as SolutionStatus;
   const isAi = solution.source === "ai_suggested";
   const tabKeys = Object.keys(TAB_LABELS) as TabKey[];
 
+  // Header action varies by current status. broken/confirmed are normally
+  // auto-derived from child Hypothesis status (see recomputeSolutionStatus),
+  // but a manual "활성화로 원복" escape hatch is exposed for human-error
+  // recovery — re-running cascade only happens when a child status changes,
+  // so this revert sticks until the user actually edits a child.
+  const action: { label: string; target: SolutionStatus; title: string } | null =
+    status === "active"
+      ? { label: "보류", target: "shelved", title: "이 솔루션을 보류" }
+      : status === "shelved"
+        ? { label: "활성화", target: "active", title: "이 솔루션을 다시 활성화" }
+        : { label: "활성화로 원복", target: "active", title: "상태를 활성으로 되돌립니다 (자식 가설 상태 유지)" };
+
+  // Card styling shifts with status so cards visually separate against
+  // the section background. Active = violet accent on white surface
+  // (the user's current focus). Inactive = neutral border + slightly
+  // muted surface so they recede in the inactive section's wash backdrop.
+  const cardClass =
+    status === "active"
+      ? "rounded-2xl border border-violet-300 bg-surface shadow-sm overflow-hidden"
+      : "rounded-2xl border border-border bg-surface/80 overflow-hidden";
+
   return (
-    <div className="rounded-2xl border border-violet-200 bg-violet-50/30 overflow-hidden">
-      {/* Header — statement + 보류 */}
-      <div className="p-4 md:p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-              <Badge variant={SOLUTION_STATUS_VARIANTS[status]}>{SOLUTION_STATUS_LABELS[status]}</Badge>
-              {isAi && (
-                <span className="inline-flex items-center gap-1 text-xs text-tertiary">
-                  <Sparkles size={10} /> 에이전트 후보
-                </span>
-              )}
+    <div className={cardClass}>
+      {/* Header — uses a hidden full-width toggle button as the click
+          target so nested interactive controls (action button) remain
+          legal HTML. The toggle is layered under the visual content. */}
+      <div className="relative p-4 md:p-5 hover:bg-wash transition-colors">
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          aria-label={expanded ? "솔루션 접기" : "솔루션 펼치기"}
+          className="absolute inset-0 w-full h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 rounded-2xl"
+        />
+        <div className="relative pointer-events-none">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                <Badge variant={SOLUTION_STATUS_VARIANTS[status]}>{SOLUTION_STATUS_LABELS[status]}</Badge>
+                {isAi && (
+                  <span className="inline-flex items-center gap-1 text-xs text-tertiary">
+                    <Sparkles size={10} /> 에이전트 후보
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-body whitespace-pre-wrap">{solution.statement}</p>
             </div>
-            <p className="text-sm text-body whitespace-pre-wrap">{solution.statement}</p>
+            <div className="flex items-center gap-2 shrink-0 pointer-events-auto">
+              <button
+                type="button"
+                onClick={() => setStatus(action.target)}
+                disabled={pendingStatus !== null}
+                className="text-xs rounded-lg border border-border bg-canvas hover:bg-wash px-2.5 py-1 text-tertiary disabled:opacity-40"
+                title={action.title}
+              >
+                {pendingStatus !== null ? <Loader2 size={12} className="animate-spin" /> : action.label}
+              </button>
+              <span aria-hidden className="text-tertiary">
+                {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              </span>
+            </div>
           </div>
-          {solution.status === "active" && (
-            <button
-              onClick={shelve}
-              disabled={shelving}
-              className="text-xs rounded-lg border border-border bg-canvas hover:bg-wash px-2.5 py-1 text-tertiary disabled:opacity-40 shrink-0"
-              title="이 솔루션을 보류"
-            >
-              {shelving ? <Loader2 size={12} className="animate-spin" /> : "보류"}
-            </button>
+
+          {status === "broken" && (
+            <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 mt-3">
+              <AlertTriangle size={12} className="text-red-600 mt-0.5 shrink-0" />
+              <p className="text-xs text-red-700">
+                검증으로 깨짐 — 새 솔루션 가설을 시도하거나 자식 가설을 수정해 다시 검증하세요
+              </p>
+            </div>
+          )}
+
+          {status === "confirmed" && (
+            <div className="flex items-start gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2 mt-3">
+              <CheckCircle2 size={12} className="text-green-600 mt-0.5 shrink-0" />
+              <p className="text-xs text-green-700">
+                핏·지불 의사 모두 확인됨 — 필요 시 자식 가설을 수정하면 상태가 자동 재계산됩니다
+              </p>
+            </div>
           )}
         </div>
-
-        {solution.status === "broken" && (
-          <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 mt-3">
-            <AlertTriangle size={12} className="text-red-600 mt-0.5 shrink-0" />
-            <p className="text-xs text-red-700">검증으로 깨짐 — 새 솔루션 가설을 시도하세요</p>
-          </div>
-        )}
       </div>
 
+      {expanded && (
+        <>
       {/* 4-tab segmented control. Tab dot = tool status. grid-cols-4 keeps
           equal width on every viewport (375px+) without overflow risk. */}
-      <div className="border-t border-violet-200/70 bg-violet-50/40">
+      <div className="border-t border-border bg-wash/60">
         <div
           role="tablist"
           aria-label="솔루션 도구"
@@ -234,6 +287,8 @@ export function SolutionValidationBlock({
           <RealityCheckSection solution={solution} onChanged={onChanged} />
         )}
       </div>
+        </>
+      )}
     </div>
   );
 }
