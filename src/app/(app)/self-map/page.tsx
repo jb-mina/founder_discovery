@@ -550,12 +550,54 @@ export default function SelfMapPage() {
           {isCanvas && (
             <div className="flex flex-1 min-h-0 flex-col overflow-y-auto bg-canvas p-3 md:p-5">
               <div className="mx-auto w-full max-w-5xl space-y-4">
+                {/* Toolbar — synthesis trigger lives where the synthesis is
+                    rendered. "요약보기" + 새로고침 here, not in the
+                    interview rail anymore. */}
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    onClick={refreshSynthesis}
+                    disabled={refreshingSynthesis || entries.length < 3}
+                    title={
+                      entries.length < 3
+                        ? "엔트리가 3개 이상일 때 요약을 정리할 수 있어요"
+                        : "AI로 정체성·tension·gap을 다시 정리"
+                    }
+                    className="rounded-md bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-500 disabled:bg-violet-300 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
+                  >
+                    {refreshingSynthesis ? (
+                      <Loader2 size={12} className="animate-spin" />
+                    ) : (
+                      <Sparkles size={12} />
+                    )}
+                    요약보기
+                  </button>
+                  <button
+                    onClick={async () => {
+                      await fetchEntries();
+                      await loadSynthesis();
+                    }}
+                    className="text-subtle hover:text-secondary p-1 rounded"
+                    title="새로고침"
+                  >
+                    <RefreshCw size={14} />
+                  </button>
+                </div>
+
                 <FounderIdentityCard
                   state={synthesisState}
                   entries={entries}
                   onPatchStatement={patchSynthesisStatement}
                   onCiteClick={scrollToEntry}
                 />
+                {synthesisState.status === "ready" && (
+                  <TensionGapSide
+                    synthesis={synthesisState.synthesis}
+                    entries={entries}
+                    onCiteClick={scrollToEntry}
+                    onDismissTension={dismissTension}
+                    onStartGapInterview={startGapInterview}
+                  />
+                )}
                 <TagCloud entries={entries} onJumpToEntry={handleJumpToEntry} />
                 <div className="flex h-[60vh] min-h-[420px] rounded-xl border border-border bg-surface overflow-hidden">
                   <NodeMap
@@ -587,35 +629,16 @@ export default function SelfMapPage() {
         >
           <div className="flex items-center justify-between px-4 py-4 border-b border-border">
             <h2 className="text-sm font-semibold text-foreground">Self Map</h2>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={refreshSynthesis}
-                disabled={refreshingSynthesis || entries.length < 3}
-                title={
-                  entries.length < 3
-                    ? "엔트리가 3개 이상일 때 요약을 정리할 수 있어요"
-                    : "AI로 정체성·tension·gap을 다시 정리"
-                }
-                className="rounded-md bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-500 disabled:bg-violet-300 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
-              >
-                {refreshingSynthesis ? (
-                  <Loader2 size={12} className="animate-spin" />
-                ) : (
-                  <Sparkles size={12} />
-                )}
-                요약보기
-              </button>
-              <button
-                onClick={async () => {
-                  await fetchEntries();
-                  await loadSynthesis();
-                }}
-                className="text-subtle hover:text-secondary p-1 rounded"
-                title="새로고침"
-              >
-                <RefreshCw size={14} />
-              </button>
-            </div>
+            <button
+              onClick={async () => {
+                await fetchEntries();
+                await loadSynthesis();
+              }}
+              className="text-subtle hover:text-secondary p-1 rounded"
+              title="새로고침"
+            >
+              <RefreshCw size={14} />
+            </button>
           </div>
 
           {/* Mobile-only CTA: prominent interview launcher. Hidden on desktop */}
@@ -634,16 +657,6 @@ export default function SelfMapPage() {
           )}
 
           <div className="px-4 py-4 space-y-4">
-            {synthesisState.status === "ready" && (
-              <TensionGapSide
-                synthesis={synthesisState.synthesis}
-                entries={entries}
-                onCiteClick={scrollToEntry}
-                onDismissTension={dismissTension}
-                onStartGapInterview={startGapInterview}
-              />
-            )}
-
             {entries.length === 0 && (
               <p className="text-xs text-subtle text-center py-8">대화하면 여기에 자동으로 정리됩니다</p>
             )}
