@@ -49,10 +49,10 @@ export type SolutionBlockData = {
 type TabKey = "fit" | "willingness" | "onepager" | "reality";
 
 const TAB_LABELS: Record<TabKey, string> = {
-  fit: "핏",
-  willingness: "지불",
+  fit: "핏 검증",
+  willingness: "지불 검증",
   onepager: "1-pager",
-  reality: "RC",
+  reality: "패널 검토",
 };
 
 const HYP_STATUS_KO: Record<HypothesisStatus, string> = {
@@ -86,7 +86,7 @@ function tabAriaLabel(tab: TabKey, solution: SolutionBlockData): string {
     return `${label}: ${HYP_STATUS_KO[s]}`;
   }
   if (tab === "onepager") return `1-pager: ${solution.onePager ? "초안 있음" : "미생성"}`;
-  return `Reality Check: ${solution.realityCheck ? "결과 있음" : "미실행"}`;
+  return `패널 검토: ${solution.realityCheck ? "결과 있음" : "미실행"}`;
 }
 
 // Default tab heuristic: pick whichever tool was most recently touched
@@ -110,12 +110,10 @@ function defaultTab(solution: SolutionBlockData): TabKey {
 
 export function SolutionValidationBlock({
   solution,
-  problemConfirmed,
   defaultExpanded = true,
   onChanged,
 }: {
   solution: SolutionBlockData;
-  problemConfirmed: boolean;
   defaultExpanded?: boolean;
   onChanged: () => void | Promise<void>;
 }) {
@@ -278,7 +276,7 @@ export function SolutionValidationBlock({
         {tab === "onepager" && (
           <OnePagerSection
             solutionHypothesisId={solution.id}
-            triggerMet={problemConfirmed && solution.status === "active"}
+            triggerMet={solution.status === "active"}
             onePager={solution.onePager}
             onChanged={onChanged}
           />
@@ -335,7 +333,7 @@ function RealityCheckSection({
       </div>
 
       {!rc ? (
-        <p className="text-xs text-subtle">아직 실행된 Reality Check이 없습니다.</p>
+        <p className="text-xs text-subtle">아직 실행된 패널 검토가 없습니다.</p>
       ) : (
         <div className="space-y-3">
           {/* Moderator first — always visible */}

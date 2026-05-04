@@ -93,7 +93,7 @@ function Placeholder() {
   return (
     <div className="rounded-lg border border-dashed border-border bg-wash px-4 py-3">
       <p className="text-xs text-muted">
-        문제 검증을 모두 확인하고 솔루션을 활성화하면 1-pager 초안을 생성할 수 있어요.
+        솔루션을 활성화하면 1-pager 초안을 생성할 수 있어요.
       </p>
     </div>
   );
