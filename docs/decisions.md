@@ -5,6 +5,14 @@
 
 ---
 
+## 신규 에이전트 default max_tokens 4096 + stop_reason 가드
+**날짜**: 2026-05-04
+**결정**: Method Coach가 production에서 "no JSON found" 500을 던졌고, 원인은 한국어 풍부 출력이 2048 토큰을 넘어 응답이 truncate된 것. 4096으로 상향 + `response.stop_reason === "max_tokens"` 가드 추가.
+**이유**: 2026-04-22 Validation Plan 파싱 버그 결정에서 "다른 에이전트도 동일 리스크"라고 명시했지만 Method Coach 신설 시 그 교훈을 적용 못 함 — 회귀 방지 위해 신규 에이전트 default를 4096으로 정착. stop_reason 가드는 다음에 같은 일이 발생하면 "JSON 파싱"이 아닌 "truncation"을 정확히 가리키게 함.
+**권장**: 신규 에이전트 추가 시 한국어 + JSON + 풍부 출력 조합이면 4096부터 시작, 더 큰 출력은 8192까지 늘리거나 출력을 쪼갠다.
+
+---
+
 ## Method Coach: 별도 에이전트 + lazy 생성 + 결정권 없음
 **날짜**: 2026-05-04
 **결정**: Validation Designer가 처방한 메서드별 실행 가이드는 신규 에이전트 `method-coach`로 분리하고, 사용자가 메서드 칩을 펼칠 때만 lazy 생성·캐시(`MethodGuide` 테이블, `(hypothesisId, method)` unique).

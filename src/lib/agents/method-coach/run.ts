@@ -17,10 +17,20 @@ export async function runMethodCoach(input: {
 }): Promise<MethodCoachOutput> {
   const response = await client.messages.create({
     model: "claude-sonnet-4-6",
-    max_tokens: 2048,
+    max_tokens: 4096,
     system: SYSTEM_PROMPT,
     messages: [{ role: "user", content: buildUserMessage(input) }],
   });
+
+  // Korean output of steps + template + channels + watchOuts easily exceeds
+  // 2048 tokens; bumping max_tokens alone fixes most cases, but a tighter
+  // prompt or a larger budget could still hit the cap. Surface truncation
+  // explicitly so the caller doesn't see "no JSON found" and chase a ghost.
+  if (response.stop_reason === "max_tokens") {
+    throw new Error(
+      "Method Coach: response truncated (max_tokens reached). Try regenerating.",
+    );
+  }
 
   const rawText = response.content[0].type === "text" ? response.content[0].text : "{}";
   const cleaned = rawText

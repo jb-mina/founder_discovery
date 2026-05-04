@@ -88,9 +88,7 @@ export function MethodGuidePanel({
   if (!guide) {
     return (
       <div className="rounded-lg border border-dashed border-violet-200 bg-violet-50/40 px-3 py-2.5">
-        <p className="text-xs text-secondary mb-2">
-          이 메서드를 이 문제 카드 맥락에 맞게 어떻게 실행할지 AI가 가이드를 짜드립니다.
-        </p>
+        <p className="text-xs text-secondary mb-2">세부 단계를 가이드 받고 싶다면?</p>
         <button
           onClick={() => generate(false)}
           disabled={generating}
