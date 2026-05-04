@@ -88,7 +88,7 @@ export function MethodGuidePanel({
   if (!guide) {
     return (
       <div className="rounded-lg border border-dashed border-violet-200 bg-violet-50/40 px-3 py-2.5">
-        <p className="text-xs text-secondary mb-2">세부 단계를 가이드 받고 싶다면?</p>
+        <p className="text-xs text-secondary mb-2">세부 단계·템플릿·채널을 제안 받으세요.</p>
         <button
           onClick={() => generate(false)}
           disabled={generating}
