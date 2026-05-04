@@ -1,6 +1,6 @@
 # Agents Inventory
 
-> 마지막 갱신: 2026-05-01
+> 마지막 갱신: 2026-05-04
 > 기준 커밋: `main` 브랜치 현재 상태
 
 ---
@@ -9,12 +9,12 @@
 
 | 상태 | 에이전트 |
 |------|----------|
-| ✅ 구현됨 | Self Insight, Problem Scout, Fit Judge, Validation Designer, Solution Suggester, Reality Check (3-persona + Moderator), **Self Map Synthesizer** |
+| ✅ 구현됨 | Self Insight, Problem Scout, Fit Judge, Validation Designer, Solution Suggester, Reality Check (3-persona + Moderator), Self Map Synthesizer, **Method Coach** |
 | 📋 기획됨 (미구현) | **OnePager Composer** — 솔루션 1-pager 초안 작성. Phase 1~3에서 구현 예정 |
 | ❌ 미구현 (PRD 언급) | — |
-| ⚠️ PRD 외 추가됨 | Reality Check Moderator (PRD에는 4번째 에이전트로 언급, 별도 API 없이 reality-check route에 통합), **Self Map Synthesizer** (Self Insight 경계 보존을 위해 합성 책임 분리, 2026-05-01) |
+| ⚠️ PRD 외 추가됨 | Reality Check Moderator (PRD에는 4번째 에이전트로 언급, 별도 API 없이 reality-check route에 통합), Self Map Synthesizer (Self Insight 경계 보존을 위해 합성 책임 분리, 2026-05-01), **Method Coach** (Validation Designer 처방을 사용자가 실제로 실행할 수 있도록 메서드별 가이드 생성, 2026-05-04) |
 
-**핵심 구조적 문제**: 대부분의 에이전트가 `lib/agents/` 없이 `app/api/*/route.ts` 내부에 인라인 구현되어 있음. CLAUDE.md 6조("에이전트 호출은 `lib/agents/<name>/` 안에 `prompt.ts` + `schema.ts` + `run.ts` 3파일 구조")와 불일치. 신규 에이전트(Validation Designer / Solution Suggester / **Self Map Synthesizer**)는 컨벤션 준수.
+**핵심 구조적 문제**: 대부분의 에이전트가 `lib/agents/` 없이 `app/api/*/route.ts` 내부에 인라인 구현되어 있음. CLAUDE.md 6조("에이전트 호출은 `lib/agents/<name>/` 안에 `prompt.ts` + `schema.ts` + `run.ts` 3파일 구조")와 불일치. 신규 에이전트(Validation Designer / Solution Suggester / Self Map Synthesizer / **Method Coach**)는 컨벤션 준수.
 
 ---
 
