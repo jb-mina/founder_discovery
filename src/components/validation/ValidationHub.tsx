@@ -148,7 +148,6 @@ export function ValidationHub({ problemCardId }: { problemCardId: string }) {
             problemCardId={problemCardId}
             activeSolutions={activeSolutions}
             inactiveSolutions={inactiveSolutions}
-            problemFullyConfirmed={problemConfirmed === 2}
             onChanged={async () => {
               await fetchView();
             }}
@@ -196,13 +195,11 @@ function SolutionTab({
   problemCardId,
   activeSolutions,
   inactiveSolutions,
-  problemFullyConfirmed,
   onChanged,
 }: {
   problemCardId: string;
   activeSolutions: ApiSolution[];
   inactiveSolutions: ApiSolution[];
-  problemFullyConfirmed: boolean;
   onChanged: () => Promise<void>;
 }) {
   const totalSolutions = activeSolutions.length + inactiveSolutions.length;
@@ -216,7 +213,7 @@ function SolutionTab({
         <Card className="text-center py-8">
           <Sparkles size={20} className="mx-auto mb-2 text-violet-400" />
           <p className="text-sm text-tertiary">
-            솔루션 가설을 등록하면 핏·지불 의사·1-pager·Reality Check로 검증을 시작할 수 있어요.
+            솔루션 가설을 등록하면 핏·지불 의사·1-pager·패널 검토로 검증을 시작할 수 있어요.
           </p>
         </Card>
       )}
@@ -240,7 +237,6 @@ function SolutionTab({
               <SolutionValidationBlock
                 key={s.id}
                 solution={toBlockData(s)}
-                problemConfirmed={problemFullyConfirmed}
                 defaultExpanded
                 onChanged={onChanged}
               />
@@ -260,7 +256,6 @@ function SolutionTab({
               <SolutionValidationBlock
                 key={s.id}
                 solution={toBlockData(s)}
-                problemConfirmed={problemFullyConfirmed}
                 defaultExpanded={false}
                 onChanged={onChanged}
               />
