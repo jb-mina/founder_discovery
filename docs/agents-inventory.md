@@ -243,8 +243,8 @@
 
 ### 입력
 ```typescript
-{ validationPlanId: string }
-// route 내부에서 ValidationPlan + ProblemCard 조회
+{ solutionHypothesisId: string }
+// route 내부에서 SolutionHypothesis + 자식 Hypothesis(fit·willingness) + ProblemCard 조회
 ```
 
 ### 출력 스키마
@@ -467,6 +467,7 @@
 
 ### 구현됐으나 PRD 외 추가 ⚠️
 - **Self Map Synthesizer** (2026-05-01) — Self Insight 경계 보존(질문자, 조언/요약 금지)을 위해 합성·해석 책임을 분리. PRD에는 명시 없음. Validation Designer / Solution Suggester 분리 패턴 그대로.
+- **Method Coach** (2026-05-04) — Validation Designer가 처방한 메서드별로 "이 문제 카드 맥락에서 오늘 실행 가능한 가이드" 생성. PRD에는 명시 없음. 책임 분리(처방 vs 실행 코칭) 원칙 준수.
 - `api/problems/seed` — 하드코딩 시드 (임시 구현, 운영 코드로 남아있음). PRD 범위와 경계 불명확.
 
 ---
@@ -475,8 +476,8 @@
 
 | 원칙 | 현황 |
 |------|------|
-| `lib/agents/<name>/prompt.ts + schema.ts + run.ts` 3파일 구조 | ⚠️ 부분 — Validation Designer / Solution Suggester / **Self Map Synthesizer** 준수. 나머지(Self Insight·Problem Scout·Fit Judge·Reality Check)는 route.ts 인라인 |
-| 에이전트 응답: JSON mode + Zod 스키마 검증 | ⚠️ 부분 — 신규 에이전트 3건 준수, 인라인 라우트는 정규식 파싱 |
+| `lib/agents/<name>/prompt.ts + schema.ts + run.ts` 3파일 구조 | ⚠️ 부분 — Validation Designer / Solution Suggester / Self Map Synthesizer / **Method Coach** 준수. 나머지(Self Insight·Problem Scout·Fit Judge·Reality Check)는 route.ts 인라인 |
+| 에이전트 응답: JSON mode + Zod 스키마 검증 | ⚠️ 부분 — 신규 에이전트 4건 준수, 인라인 라우트는 정규식 파싱 |
 | 시드 데이터: `seeds/problem-cards.json`으로만 | ❌ 미준수 — route.ts 하드코딩 |
 | LearningLog → 엔티티 역류 트랜잭션 | ❌ 미구현 |
 | Fit Judge: Self Map 인용 형태 근거 표시 | ⚠️ 부분 — reason 필드 있으나 인용 아님. 신규 Synthesizer는 `citedEntryIds`로 인용 패턴 도입 (Identity Card에서 사용) |
