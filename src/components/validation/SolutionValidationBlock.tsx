@@ -313,26 +313,35 @@ function RealityCheckSection({
   }
 
   const rc = solution.realityCheck;
+  // Reality Check prompts critique the 1-pager. The server keeps a fallback
+  // path for null onePager (degraded persona context), but gating here
+  // signals intent — run after the 1-pager exists, not before.
+  const onePagerReady = solution.onePager !== null;
 
   return (
     <div>
       {/* Action row — short description + run button. Wraps on narrow widths. */}
       <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
         <p className="text-xs text-muted flex-1 min-w-[12rem]">
-          냉정한 투자자·솔직한 친구·소크라테스 3 페르소나가 솔루션을 비판적으로 검토하고
+          냉정한 투자자·솔직한 친구·소크라테스 3 페르소나가 1-pager를 비판적으로 검토하고
           모더레이터가 종합합니다.
         </p>
         <button
           onClick={runRealityCheck}
-          disabled={running}
+          disabled={running || !onePagerReady}
           className="flex items-center gap-1.5 text-xs rounded-lg border border-border bg-canvas hover:bg-wash px-2.5 py-1.5 text-tertiary disabled:opacity-40 shrink-0"
+          title={!onePagerReady ? "1-pager 초안을 먼저 생성해주세요" : undefined}
         >
           {running ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />}
           {rc ? "재실행" : "실행"}
         </button>
       </div>
 
-      {!rc ? (
+      {!onePagerReady ? (
+        <p className="text-xs text-subtle">
+          1-pager 초안을 먼저 생성해주세요. 패널 검토는 1-pager 내용을 비판적으로 읽습니다.
+        </p>
+      ) : !rc ? (
         <p className="text-xs text-subtle">아직 실행된 패널 검토가 없습니다.</p>
       ) : (
         <div className="space-y-3">
