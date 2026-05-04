@@ -5,6 +5,14 @@
 
 ---
 
+## Validating list bucket: 부모 SolutionHypothesis.status를 SSoT로 사용
+**날짜**: 2026-05-04
+**결정**: `deriveListStatus`의 "검증 완료" 판정을 자식 hypothesis 둘 다 confirmed → 부모에 `status === "confirmed"` 솔루션 존재 여부로 변경.
+**이유**: PR #46 "활성화로 원복" escape hatch가 부모=active + 자식=confirmed라는 새 상태 조합을 만들었는데, 자식 status로 bucket을 판정하면 사용자의 명시적 원복 의도가 무시되고 "검증 완료" 탭에 잘못 카테고리화됨. CLAUDE.md 원칙(부모 status가 사용자 의도의 SSoT)과 정렬.
+**유지**: Stepper(`axisStatusFor`)는 자식 status 그대로 — 검증 findings는 보존된다는 정보 시각화. Bucket(부모 의도)와 Stepper(축별 진행)의 분리는 의도적.
+
+---
+
 ## 1-pager 게이팅 완화: problemConfirmed 제거
 **날짜**: 2026-05-04
 **결정**: 1-pager 생성/재생성 게이트를 `problemConfirmed && solution.status === "active"`에서 `solution.status === "active"`로 축소.
