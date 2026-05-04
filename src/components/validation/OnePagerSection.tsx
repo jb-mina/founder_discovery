@@ -68,18 +68,22 @@ export function OnePagerSection({
   onePager: OnePagerData | null;
   onChanged: () => void | Promise<void>;
 }) {
-  if (!triggerMet) return <Placeholder />;
-  if (!onePager)
+  // Existing onePager content is viewable regardless of trigger state — only
+  // generation/regeneration is gated by triggerMet so users can revisit
+  // shelved/confirmed/broken solutions and their drafts.
+  if (onePager)
     return (
-      <CTABlock
+      <Editor
         solutionHypothesisId={solutionHypothesisId}
+        onePager={onePager}
         onChanged={onChanged}
+        canRegenerate={triggerMet}
       />
     );
+  if (!triggerMet) return <Placeholder />;
   return (
-    <Editor
+    <CTABlock
       solutionHypothesisId={solutionHypothesisId}
-      onePager={onePager}
       onChanged={onChanged}
     />
   );
@@ -147,10 +151,12 @@ function Editor({
   solutionHypothesisId,
   onePager,
   onChanged,
+  canRegenerate,
 }: {
   solutionHypothesisId: string;
   onePager: OnePagerData;
   onChanged: () => void | Promise<void>;
+  canRegenerate: boolean;
 }) {
   const [regenerating, setRegenerating] = useState(false);
   const [regenError, setRegenError] = useState<string | null>(null);
@@ -194,19 +200,21 @@ function Editor({
     <div className="rounded-lg border border-violet-200 bg-surface">
       <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-violet-200/70 bg-violet-50/40">
         <p className="text-xs text-muted">{meta}</p>
-        <button
-          onClick={regenerate}
-          disabled={regenerating}
-          className="flex items-center gap-1 text-xs text-tertiary hover:text-secondary disabled:opacity-50"
-          title="기존 내용을 모두 AI 초안으로 덮어씀"
-        >
-          {regenerating ? (
-            <Loader2 size={12} className="animate-spin" />
-          ) : (
-            <RefreshCw size={12} />
-          )}
-          {regenerating ? "재생성 중..." : "초안 재생성"}
-        </button>
+        {canRegenerate && (
+          <button
+            onClick={regenerate}
+            disabled={regenerating}
+            className="flex items-center gap-1 text-xs text-tertiary hover:text-secondary disabled:opacity-50"
+            title="기존 내용을 모두 AI 초안으로 덮어씀"
+          >
+            {regenerating ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : (
+              <RefreshCw size={12} />
+            )}
+            {regenerating ? "재생성 중..." : "초안 재생성"}
+          </button>
+        )}
       </div>
       {regenError && (
         <p className="text-xs text-red-600 px-4 pt-2">{regenError}</p>

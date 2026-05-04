@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { ProblemHeader } from "@/components/validation/ProblemHeader";
 import { MainTabs, type TabKey } from "@/components/validation/MainTabs";
 import { AxisWorkspace, type AxisWorkspaceData } from "@/components/validation/AxisWorkspace";
-import { SolutionPanel, type SolutionPanelData } from "@/components/validation/SolutionPanel";
+import { SolutionPanel } from "@/components/validation/SolutionPanel";
 import { SolutionValidationBlock } from "@/components/validation/SolutionValidationBlock";
 import type { OnePagerData } from "@/components/validation/OnePagerSection";
 
@@ -108,15 +108,6 @@ export function ValidationHub({ problemCardId }: { problemCardId: string }) {
   const recommended: TabKey | null =
     problemConfirmed < 2 ? "problem" : activeSolutions.length === 0 ? "solution" : null;
 
-  const inactivePanelData: SolutionPanelData[] = inactiveSolutions.map((s) => ({
-    id: s.id,
-    statement: s.statement,
-    source: s.source,
-    status: s.status,
-    hypothesesConfirmed: s.hypotheses.filter((h) => h.status === "confirmed").length,
-    hypothesesTotal: s.hypotheses.length,
-  }));
-
   return (
     <div className="pb-20">
       <ProblemHeader
@@ -156,7 +147,7 @@ export function ValidationHub({ problemCardId }: { problemCardId: string }) {
           <SolutionTab
             problemCardId={problemCardId}
             activeSolutions={activeSolutions}
-            inactivePanelData={inactivePanelData}
+            inactiveSolutions={inactiveSolutions}
             problemFullyConfirmed={problemConfirmed === 2}
             onChanged={async () => {
               await fetchView();
@@ -188,29 +179,38 @@ function ProblemTab({
   );
 }
 
+function toBlockData(s: ApiSolution) {
+  return {
+    id: s.id,
+    statement: s.statement,
+    source: s.source,
+    status: s.status,
+    fit: s.hypotheses.find((h) => h.axis === "fit") ?? null,
+    willingness: s.hypotheses.find((h) => h.axis === "willingness") ?? null,
+    realityCheck: s.realityChecks[0] ?? null,
+    onePager: s.onePager,
+  };
+}
+
 function SolutionTab({
   problemCardId,
   activeSolutions,
-  inactivePanelData,
+  inactiveSolutions,
   problemFullyConfirmed,
   onChanged,
 }: {
   problemCardId: string;
   activeSolutions: ApiSolution[];
-  inactivePanelData: SolutionPanelData[];
+  inactiveSolutions: ApiSolution[];
   problemFullyConfirmed: boolean;
   onChanged: () => Promise<void>;
 }) {
-  const totalSolutions = activeSolutions.length + inactivePanelData.length;
-  const hasOnlyInactive = activeSolutions.length === 0 && inactivePanelData.length > 0;
+  const totalSolutions = activeSolutions.length + inactiveSolutions.length;
+  const hasOnlyInactive = activeSolutions.length === 0 && inactiveSolutions.length > 0;
 
   return (
     <div className="space-y-5">
-      <SolutionPanel
-        problemCardId={problemCardId}
-        inactiveSolutions={inactivePanelData}
-        onChanged={onChanged}
-      />
+      <SolutionPanel problemCardId={problemCardId} onChanged={onChanged} />
 
       {totalSolutions === 0 && (
         <Card className="text-center py-8">
@@ -224,28 +224,46 @@ function SolutionTab({
       {hasOnlyInactive && (
         <Card className="text-center py-6">
           <p className="text-sm text-tertiary">
-            활성 솔루션 없음 — 보류 가설을 활성화하거나 새 가설을 추가하세요.
+            활성 솔루션 없음 — 보류·완료 가설을 활성화하거나 새 가설을 추가하세요.
           </p>
         </Card>
       )}
 
-      {activeSolutions.map((s) => (
-        <SolutionValidationBlock
-          key={s.id}
-          solution={{
-            id: s.id,
-            statement: s.statement,
-            source: s.source,
-            status: s.status,
-            fit: s.hypotheses.find((h) => h.axis === "fit") ?? null,
-            willingness: s.hypotheses.find((h) => h.axis === "willingness") ?? null,
-            realityCheck: s.realityChecks[0] ?? null,
-            onePager: s.onePager,
-          }}
-          problemConfirmed={problemFullyConfirmed}
-          onChanged={onChanged}
-        />
-      ))}
+      {activeSolutions.length > 0 && (
+        <div className="space-y-5">
+          <p className="text-xs font-medium text-tertiary uppercase tracking-wide">
+            활성 솔루션 {activeSolutions.length}개
+          </p>
+          {activeSolutions.map((s) => (
+            <SolutionValidationBlock
+              key={s.id}
+              solution={toBlockData(s)}
+              problemConfirmed={problemFullyConfirmed}
+              defaultExpanded
+              onChanged={onChanged}
+            />
+          ))}
+        </div>
+      )}
+
+      {inactiveSolutions.length > 0 && (
+        <div className="space-y-5 pt-2">
+          <p className="text-xs font-medium text-tertiary uppercase tracking-wide">
+            보류·완료·깨진 솔루션 {inactiveSolutions.length}개
+          </p>
+          <div className="space-y-5 opacity-90">
+            {inactiveSolutions.map((s) => (
+              <SolutionValidationBlock
+                key={s.id}
+                solution={toBlockData(s)}
+                problemConfirmed={problemFullyConfirmed}
+                defaultExpanded={false}
+                onChanged={onChanged}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
