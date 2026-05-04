@@ -11,6 +11,7 @@ import {
 } from "./_components/FounderIdentityCard";
 import { TensionGapSide } from "./_components/TensionGapSide";
 import { NodeMap } from "./_components/NodeMap";
+import { TagCloud } from "./_components/TagCloud";
 
 type Message = { role: "user" | "assistant"; content: string };
 type SelfMapEntry = {
@@ -547,17 +548,28 @@ export default function SelfMapPage() {
           )}
 
           {isCanvas && (
-            <div className="flex flex-1 min-h-0 p-2 md:p-4 bg-canvas">
-              <NodeMap
-                refreshSignal={graphSignal}
-                entries={entries}
-                clusterMeanings={
-                  synthesisState.status === "ready"
-                    ? synthesisState.synthesis.clusterMeanings ?? []
-                    : []
-                }
-                onJumpToEntry={handleJumpToEntry}
-              />
+            <div className="flex flex-1 min-h-0 flex-col overflow-y-auto bg-canvas p-3 md:p-5">
+              <div className="mx-auto w-full max-w-5xl space-y-4">
+                <FounderIdentityCard
+                  state={synthesisState}
+                  entries={entries}
+                  onPatchStatement={patchSynthesisStatement}
+                  onCiteClick={scrollToEntry}
+                />
+                <TagCloud entries={entries} onJumpToEntry={handleJumpToEntry} />
+                <div className="flex h-[60vh] min-h-[420px] rounded-xl border border-border bg-surface overflow-hidden">
+                  <NodeMap
+                    refreshSignal={graphSignal}
+                    entries={entries}
+                    clusterMeanings={
+                      synthesisState.status === "ready"
+                        ? synthesisState.synthesis.clusterMeanings ?? []
+                        : []
+                    }
+                    onJumpToEntry={handleJumpToEntry}
+                  />
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -622,13 +634,6 @@ export default function SelfMapPage() {
           )}
 
           <div className="px-4 py-4 space-y-4">
-            <FounderIdentityCard
-              state={synthesisState}
-              entries={entries}
-              onPatchStatement={patchSynthesisStatement}
-              onCiteClick={scrollToEntry}
-            />
-
             {synthesisState.status === "ready" && (
               <TensionGapSide
                 synthesis={synthesisState.synthesis}
