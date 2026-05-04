@@ -282,18 +282,23 @@ export type ListStatus = {
 };
 
 // Derive the list-card badge state for a problem in validation.
+// Uses parent SolutionHypothesis.status as the source of truth — child
+// hypothesis statuses are auto-cascaded into the parent by
+// recomputeSolutionStatus, except when the user explicitly reverts a
+// confirmed/broken solution back to "active" (escape hatch). Bucketing
+// must respect that user intent, so we read parent status here.
+//
 // Rules:
 //   - Any problem axis (existence / severity) not confirmed → "문제 검증 중"
+//   - At least one solution with status === "confirmed" → "검증 완료"
 //   - Both problem axes confirmed but no active solution → "활성 솔루션 없음"
-//   - Active solution exists, fit/willingness not all confirmed → "솔루션 검증 중"
-//   - All four confirmed → "검증 완료"
+//   - Active solution exists, none confirmed yet → "솔루션 검증 중"
 export function deriveListStatus(p: ProblemValidationListItem | ProblemValidationView): ListStatus {
   const existence = p.hypotheses.find((h) => h.axis === "existence");
   const severity = p.hypotheses.find((h) => h.axis === "severity");
   const problemConfirmed =
     existence?.status === "confirmed" && severity?.status === "confirmed";
 
-  const activeSolution = p.solutionHypotheses.find((s) => s.status === "active");
   const shelvedCount = p.solutionHypotheses.filter((s) => s.status === "shelved").length;
 
   if (!problemConfirmed) {
@@ -304,6 +309,18 @@ export function deriveListStatus(p: ProblemValidationListItem | ProblemValidatio
     return { key: "problem_validating", label: "문제 검증 중", variant: "amber", nextStep, shelvedCount };
   }
 
+  const confirmedSolution = p.solutionHypotheses.find((s) => s.status === "confirmed");
+  if (confirmedSolution) {
+    return {
+      key: "completed",
+      label: "검증 완료",
+      variant: "green",
+      nextStep: "솔루션 가설 확인됨",
+      shelvedCount,
+    };
+  }
+
+  const activeSolution = p.solutionHypotheses.find((s) => s.status === "active");
   if (!activeSolution) {
     return {
       key: "no_active_solution",
@@ -314,21 +331,8 @@ export function deriveListStatus(p: ProblemValidationListItem | ProblemValidatio
     };
   }
 
+  // Next-step hint follows child status so the user knows where to pick up.
   const fit = activeSolution.hypotheses.find((h) => h.axis === "fit");
-  const willingness = activeSolution.hypotheses.find((h) => h.axis === "willingness");
-  const solutionConfirmed =
-    fit?.status === "confirmed" && willingness?.status === "confirmed";
-
-  if (solutionConfirmed) {
-    return {
-      key: "completed",
-      label: "검증 완료",
-      variant: "green",
-      nextStep: "4가설 모두 확인됨",
-      shelvedCount,
-    };
-  }
-
   const nextStep =
     !fit || fit.status !== "confirmed" ? "다음: 솔루션 핏 검증" : "다음: 지불 의사 검증";
   return { key: "solution_validating", label: "솔루션 검증 중", variant: "violet", nextStep, shelvedCount };
