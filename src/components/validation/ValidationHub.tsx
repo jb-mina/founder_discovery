@@ -111,6 +111,7 @@ export function ValidationHub({ problemCardId }: { problemCardId: string }) {
   return (
     <div className="pb-20">
       <ProblemHeader
+        problemCardId={problemCardId}
         problem={{
           title: view.title,
           who: view.who,
@@ -120,6 +121,9 @@ export function ValidationHub({ problemCardId }: { problemCardId: string }) {
           alternatives: view.alternatives,
         }}
         progressDots={{ confirmed: problemConfirmed, total: 2 }}
+        onUpdated={async () => {
+          await fetchView();
+        }}
       />
 
       <div className="px-4 md:px-6 pt-3">
