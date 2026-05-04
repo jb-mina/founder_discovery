@@ -57,6 +57,9 @@ export default function SelfMapPage() {
   const [deepDiveTopic, setDeepDiveTopic] = useState("");
   const [editingTopic, setEditingTopic] = useState(false);
   const [topicDraft, setTopicDraft] = useState("");
+  // "chips" → 6개 칩 노출 (5 카테고리 + 직접 입력). "other_text" → 직접
+  // 입력 칩 클릭 후 자유 텍스트 input 모드.
+  const [topicPickerMode, setTopicPickerMode] = useState<"chips" | "other_text">("chips");
   const [conversationSessionId, setConversationSessionId] = useState<string | null>(null);
   const [modeHintLine, setModeHintLine] = useState<string | null>(null);
   const [ending, setEnding] = useState(false);
@@ -219,6 +222,7 @@ export default function SelfMapPage() {
       setDeepDiveTopic("");
       setEditingTopic(false);
       setTopicDraft("");
+      setTopicPickerMode("chips");
     } catch (e) {
       alert(`인터뷰 시작 실패: ${(e as Error).message}`);
     } finally {
@@ -451,41 +455,86 @@ export default function SelfMapPage() {
 
               {started && (
                 <div className="px-4 py-3 border-t border-border bg-surface space-y-2">
-                  {/* Deep-dive topic hint — session-scoped client state */}
+                  {/* Deep-dive topic hint — session-scoped client state.
+                      Picker = 5 카테고리 칩 + "직접 입력" 칩 (자유 텍스트는
+                      "직접 입력" 선택 시에만 노출 — 카테고리 align 강화). */}
                   {editingTopic ? (
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        setDeepDiveTopic(topicDraft.trim());
-                        setEditingTopic(false);
-                      }}
-                      className="flex items-center gap-2"
-                    >
-                      <Sparkles size={12} className="text-violet-500 shrink-0" />
-                      <input
-                        autoFocus
-                        value={topicDraft}
-                        onChange={(e) => setTopicDraft(e.target.value)}
-                        placeholder="더 파고들고 싶은 주제 (예: 최근 몰입했던 사이드 프로젝트)"
-                        className="flex-1 rounded-md border border-violet-200 bg-canvas px-2.5 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-violet-500"
-                      />
-                      <button
-                        type="submit"
-                        className="text-xs rounded-md bg-violet-600 text-white px-2.5 py-1 hover:bg-violet-500"
-                      >
-                        적용
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
+                    topicPickerMode === "chips" ? (
+                      <div className="flex items-start gap-2 flex-wrap">
+                        <Sparkles size={12} className="text-violet-500 shrink-0 mt-1" />
+                        <div className="flex flex-wrap gap-1.5 flex-1">
+                          {(["interests", "strengths", "aversions", "flow", "network"] as const).map((cat) => (
+                            <button
+                              key={cat}
+                              onClick={() => {
+                                setDeepDiveTopic(CATEGORY_LABELS[cat].label);
+                                setEditingTopic(false);
+                              }}
+                              className="text-xs rounded-full border border-border bg-canvas hover:border-violet-400 hover:bg-violet-50 px-2.5 py-1 text-secondary"
+                            >
+                              {CATEGORY_LABELS[cat].label}
+                            </button>
+                          ))}
+                          <button
+                            onClick={() => {
+                              setTopicDraft(deepDiveTopic);
+                              setTopicPickerMode("other_text");
+                            }}
+                            className="text-xs rounded-full border border-dashed border-violet-300 bg-canvas hover:bg-violet-50 px-2.5 py-1 text-violet-700"
+                          >
+                            + 직접 입력
+                          </button>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setEditingTopic(false);
+                            setTopicDraft(deepDiveTopic);
+                          }}
+                          className="text-xs text-tertiary hover:text-secondary px-1"
+                        >
+                          취소
+                        </button>
+                      </div>
+                    ) : (
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          const trimmed = topicDraft.trim();
+                          if (!trimmed) return;
+                          setDeepDiveTopic(trimmed);
                           setEditingTopic(false);
-                          setTopicDraft(deepDiveTopic);
+                          setTopicPickerMode("chips");
                         }}
-                        className="text-xs text-tertiary hover:text-secondary px-1"
+                        className="flex items-center gap-2"
                       >
-                        취소
-                      </button>
-                    </form>
+                        <Sparkles size={12} className="text-violet-500 shrink-0" />
+                        <input
+                          autoFocus
+                          value={topicDraft}
+                          onChange={(e) => setTopicDraft(e.target.value)}
+                          placeholder="더 파고들고 싶은 주제 (예: 최근 몰입했던 사이드 프로젝트)"
+                          className="flex-1 rounded-md border border-violet-200 bg-canvas px-2.5 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-violet-500"
+                        />
+                        <button
+                          type="submit"
+                          disabled={!topicDraft.trim()}
+                          className="text-xs rounded-md bg-violet-600 text-white px-2.5 py-1 hover:bg-violet-500 disabled:opacity-40"
+                        >
+                          적용
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTopicPickerMode("chips");
+                            setTopicDraft("");
+                          }}
+                          className="text-xs text-tertiary hover:text-secondary px-1"
+                          title="카테고리 칩으로 돌아가기"
+                        >
+                          ← 칩
+                        </button>
+                      </form>
+                    )
                   ) : deepDiveTopic ? (
                     <div className="flex items-center gap-2">
                       <span className="inline-flex items-center gap-1 rounded-full border border-violet-300 bg-violet-50 px-2.5 py-1 text-xs text-violet-700">
@@ -501,7 +550,8 @@ export default function SelfMapPage() {
                       </span>
                       <button
                         onClick={() => {
-                          setTopicDraft(deepDiveTopic);
+                          setTopicDraft("");
+                          setTopicPickerMode("chips");
                           setEditingTopic(true);
                         }}
                         className="text-xs text-tertiary hover:text-secondary inline-flex items-center gap-1"
@@ -513,6 +563,7 @@ export default function SelfMapPage() {
                     <button
                       onClick={() => {
                         setTopicDraft("");
+                        setTopicPickerMode("chips");
                         setEditingTopic(true);
                       }}
                       className="inline-flex items-center gap-1 text-xs text-tertiary hover:text-violet-600"
