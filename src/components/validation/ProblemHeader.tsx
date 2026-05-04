@@ -6,11 +6,15 @@ import { ArrowLeft, Info } from "lucide-react";
 import { ProblemDetailModal, type ProblemDetailData } from "./ProblemDetailModal";
 
 export function ProblemHeader({
+  problemCardId,
   problem,
   progressDots,
+  onUpdated,
 }: {
+  problemCardId: string;
   problem: ProblemDetailData;
   progressDots: { confirmed: number; total: number };
+  onUpdated?: () => void | Promise<void>;
 }) {
   const [detailOpen, setDetailOpen] = useState(false);
   const [showSlim, setShowSlim] = useState(false);
@@ -78,7 +82,12 @@ export function ProblemHeader({
       </div>
 
       {detailOpen && (
-        <ProblemDetailModal problem={problem} onClose={() => setDetailOpen(false)} />
+        <ProblemDetailModal
+          problemCardId={problemCardId}
+          problem={problem}
+          onClose={() => setDetailOpen(false)}
+          onUpdated={onUpdated}
+        />
       )}
     </>
   );
