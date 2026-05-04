@@ -5,6 +5,15 @@
 
 ---
 
+## Method Coach: 별도 에이전트 + lazy 생성 + 결정권 없음
+**날짜**: 2026-05-04
+**결정**: Validation Designer가 처방한 메서드별 실행 가이드는 신규 에이전트 `method-coach`로 분리하고, 사용자가 메서드 칩을 펼칠 때만 lazy 생성·캐시(`MethodGuide` 테이블, `(hypothesisId, method)` unique).
+**이유**: Validation Designer 책임은 "축별 메서드 처방 + 시그널". 여기에 "메서드 실행 코칭"을 얹으면 CLAUDE.md "에이전트에 책임 두 개 이상 주입 금지" 위반. 또 2축×3메서드≈6 호출을 검증 허브 진입 시 eager로 돌리면 로딩 폭발 + 사용자가 안 펼치는 가이드도 생성해 비용 낭비.
+**경계**: 가이드는 실행 frame + 템플릿 raw material까지만. 최종 질문지·카피·가격은 사용자가 채움(자기결정 원칙).
+**버리는 것**: Validation Designer 출력 스키마 확장(통합 에이전트) 안 — 책임 분리가 더 중요.
+
+---
+
 ## Validating list bucket: 부모 SolutionHypothesis.status를 SSoT로 사용
 **날짜**: 2026-05-04
 **결정**: `deriveListStatus`의 "검증 완료" 판정을 자식 hypothesis 둘 다 confirmed → 부모에 `status === "confirmed"` 솔루션 존재 여부로 변경.

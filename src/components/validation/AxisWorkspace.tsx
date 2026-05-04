@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { MethodGuidePanel } from "@/components/validation/MethodGuidePanel";
 import {
   AXIS_LABELS,
   AXIS_DESCRIPTIONS,
@@ -11,7 +12,10 @@ import {
   parsePrescribedMethods,
   type HypothesisStatus,
 } from "@/lib/validation-labels";
-import type { HypothesisAxis } from "@/lib/agents/validation-designer/schema";
+import type {
+  HypothesisAxis,
+  ValidationMethod,
+} from "@/lib/agents/validation-designer/schema";
 
 export type AxisWorkspaceData = {
   id: string;
@@ -51,6 +55,7 @@ export function AxisWorkspace({
   const [status, setStatus] = useState<HypothesisStatus>("not_started");
   const [savingStatus, setSavingStatus] = useState(false);
   const [savingFindings, setSavingFindings] = useState(false);
+  const [openMethod, setOpenMethod] = useState<ValidationMethod | null>(null);
 
   useEffect(() => {
     if (hypothesis) {
@@ -136,17 +141,37 @@ export function AxisWorkspace({
         </div>
       </div>
 
-      {/* Methods */}
+      {/* Methods — each is expandable to show an AI-generated execution guide */}
       <div>
         <p className="text-xs text-muted mb-2">추천 검증 메서드</p>
         {methods.length > 0 ? (
-          <ul className="space-y-1">
-            {methods.map((m, i) => (
-              <li key={m} className="flex items-start gap-2 text-sm">
-                <span className="text-violet-600 font-medium shrink-0">{i + 1}.</span>
-                <span className="text-body">{METHOD_LABELS[m]}</span>
-              </li>
-            ))}
+          <ul className="space-y-2">
+            {methods.map((m, i) => {
+              const open = openMethod === m;
+              return (
+                <li key={m} className="rounded-lg border border-border bg-canvas">
+                  <button
+                    onClick={() => setOpenMethod(open ? null : m)}
+                    aria-expanded={open}
+                    className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-wash transition-colors rounded-lg"
+                  >
+                    <span className="flex items-start gap-2 text-sm">
+                      <span className="text-violet-600 font-medium shrink-0">{i + 1}.</span>
+                      <span className="text-body">{METHOD_LABELS[m]}</span>
+                    </span>
+                    <span className="flex items-center gap-1 text-xs text-tertiary shrink-0">
+                      가이드
+                      {open ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                    </span>
+                  </button>
+                  {open && (
+                    <div className="border-t border-border px-3 py-3">
+                      <MethodGuidePanel hypothesisId={hypothesis.id} method={m} />
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <p className="text-sm text-subtle">아직 처방되지 않음</p>

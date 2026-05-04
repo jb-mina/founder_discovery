@@ -399,7 +399,51 @@
 
 ---
 
-## 8. PRD 언급 vs 구현 현황
+## 8. Method Coach Agent (✅ 구현됨, 2026-05-04)
+
+| 항목 | 내용 |
+|------|------|
+| **파일** | `src/lib/agents/method-coach/{prompt,schema,run}.ts`, `src/app/api/hypotheses/[id]/method-guide/route.ts` |
+| **PRD 매핑** | PRD에 미명시 — Validation Designer 처방을 사용자가 실제로 실행할 수 있도록 보완하는 에이전트 |
+| **UI 호출처** | `src/components/validation/MethodGuidePanel.tsx` (AxisWorkspace 내 메서드 칩 펼침) |
+| **모델** | `claude-sonnet-4-6` |
+| **호출 방식** | `client.messages.create()` + zod 검증, lazy on-demand |
+
+### 책임 경계
+- Validation Designer가 처방한 메서드(인터뷰·관찰·소액 선결제 등) 각각에 대해 **이 문제 카드 맥락에서 오늘 실행 가능한 가이드** 생성
+- 일반론 금지. 메서드별 raw material(인터뷰 질문 5~7개 / 결제 ask 메시지 / 랜딩 카피 등)까지 산출
+- **결정 권한 없음**: 가이드는 frame + 템플릿 raw material까지만. 최종 질문지·카피·가격은 사용자가 채움
+
+### 입력 (POST)
+```typescript
+{ method: ValidationMethod, regenerate?: boolean }
+// route 내부에서 Hypothesis + ProblemCard + (있다면) SolutionHypothesis 조회 후 주입
+```
+
+### 출력 스키마 (zod)
+```typescript
+{
+  steps: string[],          // 3~6개, 순서대로
+  template: string,         // 메서드별 raw material (markdown)
+  sampleSize: string,       // "10명" / "결제 시도 5건"
+  channels: string[],       // 1~5개, 한국 0to1 접근 가능 채널
+  timeEstimate: string,
+  watchOuts: string         // 흔한 함정
+}
+```
+
+### 영속화
+- `MethodGuide` 테이블 (`@@unique([hypothesisId, method])`)
+- POST는 idempotent — 캐시된 가이드가 있으면 그대로 반환, `regenerate: true`만 덮어씀
+- GET은 캐시만 조회 (생성하지 않음)
+
+### 4축 모두 지원
+- 문제 축(existence/severity)은 `Hypothesis.problemCard`로, 솔루션 축(fit/willingness)은 `Hypothesis.solutionHypothesis.problemCard`로 카드 해결
+- 솔루션 축 호출 시 `SolutionHypothesis.statement`도 컨텍스트로 주입 (가이드가 솔루션 가설을 검증하는 방향으로 정렬)
+
+---
+
+## 9. PRD 언급 vs 구현 현황
 
 ### PRD에 있고 구현된 것 ✅
 | PRD 에이전트 | 구현 파일 |
@@ -427,7 +471,7 @@
 
 ---
 
-## 9. CLAUDE.md 준수 현황
+## 10. CLAUDE.md 준수 현황
 
 | 원칙 | 현황 |
 |------|------|
