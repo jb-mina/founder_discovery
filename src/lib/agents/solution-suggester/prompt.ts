@@ -23,8 +23,9 @@ export function buildUserMessage(input: {
   selfMap: SelfMapEntry[];
   existingSolutions: string[];
   problemFindings?: string;
+  userPrompt?: string;
 }): string {
-  const { card, selfMap, existingSolutions, problemFindings } = input;
+  const { card, selfMap, existingSolutions, problemFindings, userPrompt } = input;
 
   const existingBlock = existingSolutions.length > 0
     ? `\n이미 등록된 솔루션 가설 (이것들과는 다른 각도로):\n${existingSolutions.map((s, i) => `${i + 1}. ${s}`).join("\n")}\n`
@@ -32,6 +33,13 @@ export function buildUserMessage(input: {
 
   const findingsBlock = problemFindings && problemFindings.trim().length > 0
     ? `\n문제 검증 단계 findings (참고용, 후보가 이 증거에 부합하도록):\n${problemFindings.slice(0, 600)}\n`
+    : "";
+
+  // User-supplied requirements override defaults but never the problem
+  // context. Self-determination principle: the agent still proposes 3
+  // candidates as hypotheses; the user picks/edits/saves.
+  const userPromptBlock = userPrompt && userPrompt.trim().length > 0
+    ? `\n사용자 추가 요건·고려사항 (후보 생성 시 우선 반영. 단, 문제 카드 컨텍스트와 충돌하면 문제 카드가 우선):\n${userPrompt.trim().slice(0, 500)}\n`
     : "";
 
   return `다음 문제 카드에 대해 **솔루션 가설 후보 3개**를 제안하세요. 후보는 서로 다른 각도여야 합니다.
@@ -43,7 +51,7 @@ export function buildUserMessage(input: {
 - 왜 겪는가: ${card.why}
 - 핵심 불편: ${card.painPoints}
 - 현재 대체재: ${card.alternatives}
-${existingBlock}${findingsBlock}
+${existingBlock}${findingsBlock}${userPromptBlock}
 창업자 Self Map (참고용 — 창업자의 강점·접근 가능 네트워크 등을 활용할 수 있는 후보면 가산점):
 ${selfMapToText(selfMap)}
 

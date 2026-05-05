@@ -9,6 +9,10 @@ import {
 
 const bodySchema = z.object({
   problemCardId: z.string().min(1),
+  // Optional user-supplied requirements/considerations. Soft-capped at 500
+  // chars in the prompt builder; we cap at 1000 here so a longer raw input
+  // doesn't bypass validation, but the prompt itself trims aggressively.
+  userPrompt: z.string().trim().max(1000).optional(),
 });
 
 // POST /api/solution-hypotheses/suggest
@@ -19,7 +23,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid body" }, { status: 400 });
   }
-  const { problemCardId } = parsed.data;
+  const { problemCardId, userPrompt } = parsed.data;
 
   const card = await prisma.problemCard.findUnique({ where: { id: problemCardId } });
   if (!card) return NextResponse.json({ error: "Problem not found" }, { status: 404 });
@@ -34,6 +38,7 @@ export async function POST(req: NextRequest) {
       selfMap,
       existingSolutions,
       problemFindings,
+      userPrompt: userPrompt && userPrompt.length > 0 ? userPrompt : undefined,
     });
     return NextResponse.json(result);
   } catch (err) {

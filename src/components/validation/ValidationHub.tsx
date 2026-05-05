@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2, RefreshCw, Sparkles } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { ProblemHeader } from "@/components/validation/ProblemHeader";
 import { MainTabs, type TabKey } from "@/components/validation/MainTabs";
@@ -140,6 +140,7 @@ export function ValidationHub({ problemCardId }: { problemCardId: string }) {
       <div className="p-4 md:p-6 space-y-5">
         {tab === "problem" ? (
           <ProblemTab
+            problemCardId={problemCardId}
             existence={existence}
             severity={severity}
             bootstrapping={bootstrapping}
@@ -163,21 +164,118 @@ export function ValidationHub({ problemCardId }: { problemCardId: string }) {
 }
 
 function ProblemTab({
+  problemCardId,
   existence,
   severity,
   bootstrapping,
   onUpdated,
 }: {
+  problemCardId: string;
   existence: ApiHypothesis | null;
   severity: ApiHypothesis | null;
   bootstrapping: boolean;
   onUpdated: () => Promise<void>;
 }) {
   const placeholder = bootstrapping ? "처방 생성 중..." : "처방 대기 중";
+  const lastUpdated = mostRecent(existence?.updatedAt, severity?.updatedAt);
   return (
     <div className="space-y-4">
+      {(existence || severity) && (
+        <HypothesesRefreshBar
+          problemCardId={problemCardId}
+          lastUpdated={lastUpdated}
+          onRefreshed={onUpdated}
+        />
+      )}
       <AxisWorkspace hypothesis={existence} onUpdated={onUpdated} loadingPlaceholder={placeholder} />
       <AxisWorkspace hypothesis={severity} onUpdated={onUpdated} loadingPlaceholder={placeholder} />
+    </div>
+  );
+}
+
+function mostRecent(a?: string, b?: string): string | null {
+  if (!a && !b) return null;
+  if (!a) return b ?? null;
+  if (!b) return a;
+  return Date.parse(a) >= Date.parse(b) ? a : b;
+}
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "방금";
+  if (m < 60) return `${m}분 전`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}시간 전`;
+  return `${Math.floor(h / 24)}일 전`;
+}
+
+// Refresh bar — calls the existing bootstrap endpoint, which uses
+// `bootstrapProblemHypotheses` (upsert) and overwrites only the AI-generated
+// fields (prescribedMethods/successSignals/failureSignals). User-owned
+// fields (findings, status) are preserved.
+function HypothesesRefreshBar({
+  problemCardId,
+  lastUpdated,
+  onRefreshed,
+}: {
+  problemCardId: string;
+  lastUpdated: string | null;
+  onRefreshed: () => Promise<void>;
+}) {
+  const [running, setRunning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function refresh() {
+    if (
+      !window.confirm(
+        "기존 추천 메서드와 성공/실패 시그널이 새 AI 처방으로 덮어씌워집니다.\nfindings(검증 기록)와 status는 보존됩니다. 계속할까요?",
+      )
+    ) {
+      return;
+    }
+    setRunning(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/problems/${problemCardId}/hypotheses`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.message || `재생성 실패 (${res.status})`);
+      }
+      await onRefreshed();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-violet-200 bg-violet-50/40 px-3 py-2 flex-wrap">
+      <div className="text-xs text-tertiary min-w-0">
+        <span className="text-secondary font-medium">문제 검증 처방</span>
+        {lastUpdated && (
+          <span className="ml-2 text-subtle">갱신: {timeAgo(lastUpdated)}</span>
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        {error && <span className="text-xs text-red-600">{error}</span>}
+        <button
+          onClick={refresh}
+          disabled={running}
+          className="flex items-center gap-1 text-xs rounded-md border border-border bg-canvas hover:bg-wash px-2.5 py-1.5 text-tertiary disabled:opacity-50"
+          title="문제 카드 수정 후 새 처방을 받습니다 (findings/status 보존)"
+        >
+          {running ? (
+            <Loader2 size={12} className="animate-spin" />
+          ) : (
+            <RefreshCw size={12} />
+          )}
+          {running ? "처방 생성 중..." : "처방 새로 받기"}
+        </button>
+      </div>
     </div>
   );
 }

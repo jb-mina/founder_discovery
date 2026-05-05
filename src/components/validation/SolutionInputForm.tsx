@@ -19,6 +19,7 @@ export function SolutionInputForm({
   onSaved: () => void | Promise<void>;
 }) {
   const [manualStatement, setManualStatement] = useState("");
+  const [userPrompt, setUserPrompt] = useState("");
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [picked, setPicked] = useState<CandidateDraft[]>([]);
   const [loadingCandidates, setLoadingCandidates] = useState(false);
@@ -28,15 +29,25 @@ export function SolutionInputForm({
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const isPicking = picked.length > 0;
+  const USER_PROMPT_MAX = 500;
+  const userPromptOverLimit = userPrompt.length > USER_PROMPT_MAX;
 
   async function fetchCandidates() {
+    if (userPromptOverLimit) return;
+    // Re-fetch resets prior picks — they're tied to the previous batch's
+    // angles and would otherwise dangle in the "선택된 가설 편집" list.
+    setPicked([]);
     setLoadingCandidates(true);
     setCandidatesError(null);
     try {
+      const trimmed = userPrompt.trim();
       const res = await fetch("/api/solution-hypotheses/suggest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ problemCardId }),
+        body: JSON.stringify({
+          problemCardId,
+          ...(trimmed.length > 0 ? { userPrompt: trimmed } : {}),
+        }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -141,12 +152,13 @@ export function SolutionInputForm({
               <p className="text-xs text-muted">
                 에이전트 후보 {candidates.length > 0 && <span className="text-tertiary">· {picked.length}개 선택</span>}
               </p>
-              {candidates.length === 0 && !loadingCandidates && (
+              {!loadingCandidates && (
                 <button
                   onClick={fetchCandidates}
-                  className="flex items-center gap-1 text-xs rounded-lg border border-border bg-canvas px-2.5 py-1 text-secondary hover:bg-wash"
+                  disabled={userPromptOverLimit}
+                  className="flex items-center gap-1 text-xs rounded-lg border border-border bg-canvas px-2.5 py-1 text-secondary hover:bg-wash disabled:opacity-50"
                 >
-                  <Sparkles size={12} /> 후보 3개 받기
+                  <Sparkles size={12} /> {candidates.length === 0 ? "후보 3개 받기" : "후보 다시 받기"}
                 </button>
               )}
               {loadingCandidates && (
@@ -155,6 +167,38 @@ export function SolutionInputForm({
                 </span>
               )}
             </div>
+
+            {/* Optional user-supplied requirements/considerations. Stays
+                visible after candidates render so the user can amend and
+                re-fetch without re-typing. */}
+            <div className="mb-3">
+              <div className="flex items-center justify-between mb-1">
+                <label htmlFor="solution-user-prompt" className="text-xs text-muted">
+                  추가 요건·고려사항 <span className="text-subtle">(선택)</span>
+                </label>
+                <span
+                  className={`text-[11px] ${
+                    userPromptOverLimit ? "text-red-600 font-medium" : "text-subtle"
+                  }`}
+                >
+                  {userPrompt.length}/{USER_PROMPT_MAX}
+                </span>
+              </div>
+              <textarea
+                id="solution-user-prompt"
+                value={userPrompt}
+                onChange={(e) => setUserPrompt(e.target.value)}
+                rows={3}
+                placeholder="예: 1인 운영을 전제로 합니다. 외부 인건비 최소화. 채널은 SNS 우선."
+                className="w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 resize-y"
+              />
+              {userPromptOverLimit && (
+                <p className="text-xs text-red-600 mt-1">
+                  {USER_PROMPT_MAX}자 이내로 줄여주세요.
+                </p>
+              )}
+            </div>
+
             {candidatesError && <p className="text-xs text-red-600">{candidatesError}</p>}
             {candidates.length > 0 && (
               <div className="space-y-2">
