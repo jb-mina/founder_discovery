@@ -1,13 +1,14 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
-import { ClipboardList } from "lucide-react";
+import { Archive, ClipboardList } from "lucide-react";
 import {
   deriveListStatus,
   listEligibleForValidation,
   listProblemsInValidation,
   type ListStatusKey,
 } from "@/lib/db/validation";
+import { countArchivedProblems } from "@/lib/db/problem-cards";
 import { AddProblemTrigger } from "@/components/validation/AddProblemTrigger";
 import {
   ValidationListTabs,
@@ -15,9 +16,10 @@ import {
 } from "@/components/validation/ValidationListTabs";
 
 export default async function ValidationListPage() {
-  const [problems, eligible] = await Promise.all([
+  const [problems, eligible, archivedCount] = await Promise.all([
     listProblemsInValidation(),
     listEligibleForValidation(),
+    countArchivedProblems(),
   ]);
 
   const buckets: ValidationBuckets = {
@@ -36,12 +38,23 @@ export default async function ValidationListPage() {
 
   return (
     <div className="p-4 md:p-6 space-y-6">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">
           <ClipboardList size={20} className="text-violet-600" />
           <h1 className="text-h1 font-semibold text-foreground">Validating</h1>
         </div>
-        <AddProblemTrigger eligible={eligible} />
+        <div className="flex items-center gap-3">
+          {archivedCount > 0 && (
+            <Link
+              href="/validation/archive"
+              className="flex items-center gap-1 text-xs text-tertiary hover:text-secondary"
+            >
+              <Archive size={14} />
+              아카이브 ({archivedCount})
+            </Link>
+          )}
+          <AddProblemTrigger eligible={eligible} />
+        </div>
       </div>
 
       {problems.length === 0 ? (

@@ -52,10 +52,12 @@ export type ProblemValidationListItem = ProblemCard & {
 };
 
 // All problems that have any validation activity (problem-level hypothesis OR
-// at least one solution hypothesis attached).
+// at least one solution hypothesis attached). Archived cards are excluded —
+// see lib/db/problem-cards.ts for the archived list.
 export async function listProblemsInValidation(): Promise<ProblemValidationListItem[]> {
   return prisma.problemCard.findMany({
     where: {
+      archivedAt: null,
       OR: [
         { hypotheses: { some: {} } },
         { solutionHypotheses: { some: {} } },
@@ -83,6 +85,7 @@ export type EligibleProblemForValidation = ProblemCard & {
 export async function listEligibleForValidation(): Promise<EligibleProblemForValidation[]> {
   const rows = await prisma.problemCard.findMany({
     where: {
+      archivedAt: null,
       fitEvaluations: { some: {} },
       hypotheses: { none: {} },
       solutionHypotheses: { none: {} },
