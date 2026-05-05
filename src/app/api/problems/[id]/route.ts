@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isProblemCategory } from "@/lib/problem-categories";
+import {
+  getProblemCardDeletionPreview,
+  hardDeleteProblemCard,
+} from "@/lib/db/problem-cards";
 
 const EDITABLE_FIELDS = [
   "title",
@@ -15,6 +19,18 @@ const EDITABLE_FIELDS = [
   "stage",
   "category",
 ] as const;
+
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id } = await params;
+  const preview = await getProblemCardDeletionPreview(id);
+  if (!preview) {
+    return NextResponse.json({ error: "ProblemCard not found" }, { status: 404 });
+  }
+  return NextResponse.json(preview);
+}
 
 export async function PATCH(
   req: NextRequest,
@@ -50,4 +66,27 @@ export async function PATCH(
 
   const card = await prisma.problemCard.update({ where: { id }, data });
   return NextResponse.json(card);
+}
+
+// Hard delete is gated behind the archive state — the UI surfaces it only on
+// the archive page, and this guard ensures direct API callers can't bypass
+// the soft step. Cascade FKs handle dependent rows (FitEvaluation, Hypothesis,
+// SolutionHypothesis → RealityCheck/OnePager).
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id } = await params;
+  const preview = await getProblemCardDeletionPreview(id);
+  if (!preview) {
+    return NextResponse.json({ error: "ProblemCard not found" }, { status: 404 });
+  }
+  if (!preview.archivedAt) {
+    return NextResponse.json(
+      { error: "ProblemCard must be archived before permanent deletion" },
+      { status: 409 },
+    );
+  }
+  await hardDeleteProblemCard(id);
+  return NextResponse.json({ ok: true });
 }

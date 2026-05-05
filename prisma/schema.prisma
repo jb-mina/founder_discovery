@@ -31,12 +31,15 @@ model ProblemCard {
   stage        String   @default("")
   category     String   @default("")
   addedBy      String   @default("scout")
+  archivedAt   DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   fitEvaluations      FitEvaluation[]
   hypotheses          Hypothesis[]         // axis: existence | severity (problem-level)
   solutionHypotheses  SolutionHypothesis[]
+
+  @@index([archivedAt])
 }
 
 model FitEvaluation {

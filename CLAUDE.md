@@ -73,7 +73,7 @@
 현재 Prisma 스키마 기준. 누락 필드/엔티티는 마이그레이션 대기 상태.
 
 - `SelfMap` 엔트리 — 필드별 `sourceMessageId`(추가 대기).
-- `ProblemCard` — `who` / `when` / `why` / `alternatives` / `painPoints` / `source` / `sourceUrl` / `sourceVerifiedAt`(추가 대기) / `stage`. 하위로 `Hypothesis[]`(존재·심각도) + `SolutionHypothesis[]` 1:N.
+- `ProblemCard` — `who` / `when` / `why` / `alternatives` / `painPoints` / `source` / `sourceUrl` / `sourceVerifiedAt`(추가 대기) / `stage` / `archivedAt`(nullable, soft archive). 하위로 `Hypothesis[]`(존재·심각도) + `SolutionHypothesis[]` 1:N. **아카이브는 stage와 독립** — 복원 시 원래 stage 보존. 영구 삭제는 archived 상태에서만 허용 (DELETE `/api/problems/:id` 가드 + UI는 archive 페이지에서만 노출).
 - `FitEvaluation` — `attraction` · `understanding` · `accessibility` · `motivation` (각 1–5, 평균 = `totalScore`).
 - `SolutionHypothesis` — 한 ProblemCard 위에서 시도하는 솔루션 가설 단위. `statement` · `source`(`manual` | `ai_suggested`) · `status`(`active` | `shelved` | `confirmed` | `broken`). 하위로 `Hypothesis[]`(핏·지불 의사) + `RealityCheck[]`. **`broken` / `confirmed`는 자식 가설 상태에서 자동 도출** (`recomputeSolutionStatus` cascade) — 사용자가 능동 결정하는 건 `active` / `shelved`뿐.
 - `Hypothesis` — 4가설 axis 통합 테이블. `axis`(`existence` | `severity` | `fit` | `willingness`) · `prescribedMethods`(JSON) · `successSignals` · `failureSignals` · `status`(`not_started` | `in_progress` | `broken` | `confirmed`) · `findings`. 두 nullable 부모 FK 패턴 — `problemCardId`(존재·심각도용)와 `solutionHypothesisId`(핏·지불 의사용) 중 **정확히 하나만 set**. 부모별 `(parentId, axis)` unique 제약으로 중복 방지.

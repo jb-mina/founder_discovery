@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Info } from "lucide-react";
+import { CardActionMenu } from "./CardActionMenu";
 import { ProblemDetailModal, type ProblemDetailData } from "./ProblemDetailModal";
 
 export function ProblemHeader({
@@ -16,6 +18,7 @@ export function ProblemHeader({
   progressDots: { confirmed: number; total: number };
   onUpdated?: () => void | Promise<void>;
 }) {
+  const router = useRouter();
   const [detailOpen, setDetailOpen] = useState(false);
   const [showSlim, setShowSlim] = useState(false);
   const fullRef = useRef<HTMLDivElement>(null);
@@ -30,6 +33,11 @@ export function ProblemHeader({
     obs.observe(node);
     return () => obs.disconnect();
   }, []);
+
+  async function archive() {
+    const res = await fetch(`/api/problems/${problemCardId}/archive`, { method: "POST" });
+    if (res.ok) router.push("/validation");
+  }
 
   return (
     <>
@@ -52,11 +60,14 @@ export function ProblemHeader({
 
       {/* Full header — non-sticky, always at top */}
       <div ref={fullRef} className="px-4 md:px-6 pt-4 pb-5 border-b border-border bg-surface">
-        <div className="flex items-center gap-2 mb-3">
-          <Link href="/validation" className="text-subtle hover:text-secondary" aria-label="목록으로">
-            <ArrowLeft size={16} />
-          </Link>
-          <ProgressBadge confirmed={progressDots.confirmed} total={progressDots.total} />
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <Link href="/validation" className="text-subtle hover:text-secondary" aria-label="목록으로">
+              <ArrowLeft size={16} />
+            </Link>
+            <ProgressBadge confirmed={progressDots.confirmed} total={progressDots.total} />
+          </div>
+          <CardActionMenu variant="active" onArchive={archive} size="md" />
         </div>
 
         <div className="flex items-start gap-2 mb-2">

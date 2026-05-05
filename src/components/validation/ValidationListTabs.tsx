@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Sparkles } from "lucide-react";
@@ -9,6 +10,7 @@ import {
   deriveListStatus,
   type ProblemValidationListItem,
 } from "@/lib/db/validation";
+import { CardActionMenu } from "./CardActionMenu";
 import { StepperBar } from "./StepperBar";
 
 type TabKey = "problem" | "solution" | "completed";
@@ -146,9 +148,15 @@ function RowList({ items }: { items: ProblemValidationListItem[] }) {
 }
 
 function ProblemRow({ problem }: { problem: ProblemValidationListItem }) {
+  const router = useRouter();
   const status = deriveListStatus(problem);
   const steps = axisStatusFor(problem);
   const activeSolution = problem.solutionHypotheses.find((s) => s.status === "active");
+
+  async function archive() {
+    const res = await fetch(`/api/problems/${problem.id}/archive`, { method: "POST" });
+    if (res.ok) router.refresh();
+  }
 
   return (
     <Link href={`/validation/${problem.id}`} className="block">
@@ -158,9 +166,12 @@ function ProblemRow({ problem }: { problem: ProblemValidationListItem }) {
             <p className="font-semibold text-base text-foreground line-clamp-2">{problem.title}</p>
             <p className="text-xs text-muted mt-1 line-clamp-1">{problem.who}</p>
           </div>
-          {status.shelvedCount > 0 && (
-            <span className="shrink-0 text-xs text-subtle mt-1">보류 {status.shelvedCount}</span>
-          )}
+          <div className="flex items-center gap-2 shrink-0 mt-1">
+            {status.shelvedCount > 0 && (
+              <span className="text-xs text-subtle">보류 {status.shelvedCount}</span>
+            )}
+            <CardActionMenu variant="active" onArchive={archive} />
+          </div>
         </div>
 
         <StepperBar steps={steps} />

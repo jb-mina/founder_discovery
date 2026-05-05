@@ -5,6 +5,14 @@
 
 ---
 
+## ProblemCard 아카이브: stage enum 대신 별도 `archivedAt`, 영구 삭제는 archived 가드
+**날짜**: 2026-05-05
+**결정**: 검증 허브에 보류·broken이 누적되는 카드를 사용자가 시야에서 빼는 escape hatch가 필요. `ProblemCard.archivedAt: DateTime?` 추가, 활성 리스트 쿼리에 `archivedAt: null` 필터, 별도 `/validation/archive` 페이지에서 복원/영구 삭제 노출. 영구 삭제는 archived 카드에서만 허용 (DELETE `/api/problems/:id` 가드 + UI 분리).
+**이유**: stage는 string으로 쓰이는 자유 필드라 `archived`를 그 안에 넣으면 stage 본래 값(seed/series-a 등)을 덮어써 복원 시 정보 손실. 별도 timestamp 필드는 stage·복원 경로와 직교하고 인덱스도 효율적. 영구 삭제 직행은 "발견은 누적이다" 원칙 위반 — 아카이브 단계를 1차 동작으로 강제하면 cascade 손실 위험을 한 번 더 검토하게 됨.
+**버리는 것**: ① stage enum 확장 안. ② SolutionHypothesis 단위 아카이브 — 이미 `shelved`로 대체 가능. ③ 자동 아카이브 제안 — 사용자 데이터 누적 후 P1.
+
+---
+
 ## Self Map Synthesizer max_tokens 8192 + 모든 fallback 파싱에 try/catch 의무화
 **날짜**: 2026-05-04
 **결정**: 합성기 응답이 4096에서도 잘려 production 500 발생. 8192로 상향 + `stop_reason === "max_tokens"` 가드 + regex fallback `JSON.parse(jsonMatch[0])`도 try/catch로 감싸 raw SyntaxError가 새지 않게.
