@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Loader2, RefreshCw, Sparkles } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Check, Loader2, RefreshCw, Sparkles } from "lucide-react";
 import { ONE_PAGER_SECTIONS, type OnePagerSection as SectionKey } from "@/lib/db/one-pager";
 
 const SECTION_LABELS: Record<SectionKey, string> = {
@@ -74,6 +74,9 @@ export function OnePagerSection({
   if (onePager)
     return (
       <Editor
+        // Force a fresh mount when a new AI draft replaces the prior content,
+        // so local edit state can't shadow the regenerated server draft.
+        key={onePager.draftGeneratedAt ?? "initial"}
         solutionHypothesisId={solutionHypothesisId}
         onePager={onePager}
         onChanged={onChanged}
@@ -147,6 +150,14 @@ function CTABlock({
   );
 }
 
+type SectionMap = Record<SectionKey, string>;
+
+function snapshotFromOnePager(onePager: OnePagerData): SectionMap {
+  return Object.fromEntries(
+    ONE_PAGER_SECTIONS.map((k) => [k, onePager[k]]),
+  ) as SectionMap;
+}
+
 function Editor({
   solutionHypothesisId,
   onePager,
@@ -158,8 +169,77 @@ function Editor({
   onChanged: () => void | Promise<void>;
   canRegenerate: boolean;
 }) {
+  const initial = useMemo(() => snapshotFromOnePager(onePager), [onePager]);
+  // Local edits (what the user sees in textareas).
+  const [values, setValues] = useState<SectionMap>(initial);
+  // Last server-known values per section. Updated after a successful PATCH;
+  // the diff against `values` is what defines "dirty".
+  const [serverValues, setServerValues] = useState<SectionMap>(initial);
+  // Per-section in-flight save tracking — used both for UI status and to
+  // prevent re-entrant blur saves on the same section.
+  const [savingKeys, setSavingKeys] = useState<Set<SectionKey>>(new Set());
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [regenerating, setRegenerating] = useState(false);
   const [regenError, setRegenError] = useState<string | null>(null);
+
+  const dirtyKeys = ONE_PAGER_SECTIONS.filter(
+    (k) => values[k] !== serverValues[k],
+  );
+  const isSaving = savingKeys.size > 0;
+  const allClean = dirtyKeys.length === 0 && !isSaving;
+
+  async function saveKeys(keys: SectionKey[]): Promise<boolean> {
+    // Skip keys already being saved (prevents racing PATCHes from blur+button).
+    // Snapshot is captured from the closure at call time — that's exactly the
+    // value the user saw when they triggered the save (click or blur).
+    const targets = keys.filter((k) => !savingKeys.has(k));
+    if (targets.length === 0) return true;
+    const snapshot = Object.fromEntries(
+      targets.map((k) => [k, values[k]]),
+    ) as Partial<SectionMap>;
+
+    setSavingKeys((prev) => {
+      const next = new Set(prev);
+      for (const k of targets) next.add(k);
+      return next;
+    });
+    setSaveError(null);
+    try {
+      const res = await fetch(
+        `/api/one-pagers/${solutionHypothesisId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(snapshot),
+        },
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.message || `저장 실패 (${res.status})`);
+      }
+      setServerValues((prev) => ({ ...prev, ...snapshot }));
+      await onChanged();
+      return true;
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : String(e));
+      return false;
+    } finally {
+      setSavingKeys((prev) => {
+        const next = new Set(prev);
+        for (const k of targets) next.delete(k);
+        return next;
+      });
+    }
+  }
+
+  function saveAll() {
+    void saveKeys(dirtyKeys);
+  }
+
+  function handleBlur(key: SectionKey) {
+    if (values[key] === serverValues[key]) return;
+    void saveKeys([key]);
+  }
 
   async function regenerate() {
     if (
@@ -198,79 +278,101 @@ function Editor({
 
   return (
     <div className="rounded-lg border border-violet-200 bg-surface">
-      <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-violet-200/70 bg-violet-50/40">
+      <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-violet-200/70 bg-violet-50/40 flex-wrap">
         <p className="text-xs text-muted">{meta}</p>
-        {canRegenerate && (
-          <button
-            onClick={regenerate}
-            disabled={regenerating}
-            className="flex items-center gap-1 text-xs text-tertiary hover:text-secondary disabled:opacity-50"
-            title="기존 내용을 모두 AI 초안으로 덮어씀"
-          >
-            {regenerating ? (
+        <div className="flex items-center gap-3">
+          {/* Save status / batch save action */}
+          {isSaving ? (
+            <span className="flex items-center gap-1 text-xs text-tertiary">
               <Loader2 size={12} className="animate-spin" />
-            ) : (
-              <RefreshCw size={12} />
-            )}
-            {regenerating ? "재생성 중..." : "초안 재생성"}
-          </button>
-        )}
+              저장 중...
+            </span>
+          ) : dirtyKeys.length > 0 ? (
+            <button
+              onClick={saveAll}
+              className="flex items-center gap-1 text-xs rounded-md bg-violet-600 px-2.5 py-1 text-white hover:bg-violet-500 font-medium"
+              title="모든 섹션의 변경사항을 한 번에 저장"
+            >
+              변경사항 저장 ({dirtyKeys.length})
+            </button>
+          ) : (
+            <span className="flex items-center gap-1 text-xs text-tertiary">
+              <Check size={12} className="text-green-600" />
+              저장됨
+            </span>
+          )}
+          {canRegenerate && (
+            <button
+              onClick={regenerate}
+              disabled={regenerating}
+              className="flex items-center gap-1 text-xs text-tertiary hover:text-secondary disabled:opacity-50"
+              title="기존 내용을 모두 AI 초안으로 덮어씀"
+            >
+              {regenerating ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <RefreshCw size={12} />
+              )}
+              {regenerating ? "재생성 중..." : "초안 재생성"}
+            </button>
+          )}
+        </div>
       </div>
-      {regenError && (
-        <p className="text-xs text-red-600 px-4 pt-2">{regenError}</p>
+      {(saveError || regenError) && (
+        <p className="text-xs text-red-600 px-4 pt-2">
+          {saveError || regenError}
+        </p>
+      )}
+      {dirtyKeys.length > 0 && !allClean && (
+        <p className="text-xs text-amber-700 bg-amber-50 border-b border-amber-200 px-4 py-1.5">
+          저장되지 않은 변경사항이 있습니다. 패널 검토(RC)는 저장된 1-pager를 기준으로 실행됩니다.
+        </p>
       )}
 
       <div className="p-3 space-y-3">
-        {ONE_PAGER_SECTIONS.map((key) => (
-          <SectionEditor
-            key={key}
-            solutionHypothesisId={solutionHypothesisId}
-            sectionKey={key}
-            initial={onePager[key]}
-            onSaved={onChanged}
-          />
-        ))}
+        {ONE_PAGER_SECTIONS.map((key) => {
+          const dirty = values[key] !== serverValues[key];
+          const saving = savingKeys.has(key);
+          return (
+            <SectionEditor
+              key={key}
+              sectionKey={key}
+              value={values[key]}
+              dirty={dirty}
+              saving={saving}
+              onChange={(v) =>
+                setValues((prev) => ({ ...prev, [key]: v }))
+              }
+              onBlur={() => handleBlur(key)}
+            />
+          );
+        })}
       </div>
     </div>
   );
 }
 
 function SectionEditor({
-  solutionHypothesisId,
   sectionKey,
-  initial,
-  onSaved,
+  value,
+  dirty,
+  saving,
+  onChange,
+  onBlur,
 }: {
-  solutionHypothesisId: string;
   sectionKey: SectionKey;
-  initial: string;
-  onSaved: () => void | Promise<void>;
+  value: string;
+  dirty: boolean;
+  saving: boolean;
+  onChange: (v: string) => void;
+  onBlur: () => void;
 }) {
-  const [value, setValue] = useState(initial);
-  const [saving, setSaving] = useState(false);
-  const [serverValue, setServerValue] = useState(initial);
-
-  const dirty = value !== serverValue;
-
-  async function save() {
-    setSaving(true);
-    try {
-      const res = await fetch(
-        `/api/one-pagers/${solutionHypothesisId}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ [sectionKey]: value }),
-        },
-      );
-      if (res.ok) {
-        setServerValue(value);
-        await onSaved();
-      }
-    } finally {
-      setSaving(false);
-    }
-  }
+  const status: { label: string; className: string; icon: "spin" | "check" | "dot" | null } =
+    saving
+      ? { label: "저장 중", className: "text-tertiary", icon: "spin" }
+      : dirty
+        ? { label: "미저장", className: "text-amber-600", icon: "dot" }
+        : { label: "저장됨", className: "text-tertiary", icon: "check" };
 
   return (
     <div className="rounded-lg border border-border bg-canvas px-3 py-2.5">
@@ -278,20 +380,19 @@ function SectionEditor({
         <p className="text-xs font-medium text-foreground">
           {SECTION_LABELS[sectionKey]}
         </p>
-        {dirty && (
-          <button
-            onClick={save}
-            disabled={saving}
-            className="flex items-center gap-1 text-xs text-violet-600 hover:text-violet-500 font-medium disabled:opacity-50"
-          >
-            {saving && <Loader2 size={10} className="animate-spin" />}
-            저장
-          </button>
-        )}
+        <span className={`flex items-center gap-1 text-xs ${status.className}`}>
+          {status.icon === "spin" && <Loader2 size={10} className="animate-spin" />}
+          {status.icon === "check" && <Check size={10} className="text-green-600" />}
+          {status.icon === "dot" && (
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />
+          )}
+          {status.label}
+        </span>
       </div>
       <textarea
         value={value}
-        onChange={(e) => setValue(e.target.value)}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
         rows={Math.max(3, Math.min(8, value.split("\n").length + 1))}
         placeholder={SECTION_PLACEHOLDER[sectionKey]}
         className="w-full rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 resize-y"
