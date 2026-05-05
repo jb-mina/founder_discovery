@@ -13,6 +13,7 @@ export async function runSolutionSuggester(input: {
   selfMap: SelfMapEntry[];
   existingSolutions: string[];
   problemFindings?: string;
+  userPrompt?: string;
 }): Promise<SolutionSuggesterOutput> {
   const response = await client.messages.create({
     model: "claude-sonnet-4-6",
