@@ -34,7 +34,9 @@ type ProblemSource = "manual" | "scout_news" | "scout_other";
 
 type ProblemStage = "idea" | "discovery" | "validation" | "archived";
 
-type SolutionSource = "manual" | "ai_suggested";
+type SolutionSource = "manual" | "ai_suggested" | "ai_merged";
+
+type SolutionMergeFromCount = 2 | 3;
 
 type SolutionStatus = "active" | "shelved" | "broken" | "confirmed";
 
@@ -130,6 +132,10 @@ export type AnalyticsEvent =
         source: SolutionSource;
         statement_length_bucket: LengthBucket;
       };
+    }
+  | {
+      event: "solution_hypothesis_merge_requested";
+      props: { merge_from_count: SolutionMergeFromCount };
     }
   | {
       event: "solution_hypothesis_status_changed";

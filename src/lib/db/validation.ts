@@ -150,7 +150,7 @@ export async function bootstrapProblemHypotheses(
 export async function createSolutionHypothesisWithAxes(input: {
   problemCardId: string;
   statement: string;
-  source: "manual" | "ai_suggested";
+  source: "manual" | "ai_suggested" | "ai_merged";
   prescriptions: HypothesisPrescription[];
 }): Promise<
   SolutionHypothesis & { hypotheses: Hypothesis[]; problemCard: ProblemCard }
