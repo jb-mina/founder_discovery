@@ -10,7 +10,7 @@ import {
 const bodySchema = z.object({
   problemCardId: z.string().min(1),
   statement: z.string().min(10),
-  source: z.enum(["manual", "ai_suggested"]).default("manual"),
+  source: z.enum(["manual", "ai_suggested", "ai_merged"]).default("manual"),
 });
 
 // POST /api/solution-hypotheses

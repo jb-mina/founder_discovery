@@ -12,3 +12,9 @@ export const solutionSuggesterOutputSchema = z.object({
 });
 
 export type SolutionSuggesterOutput = z.infer<typeof solutionSuggesterOutputSchema>;
+
+export const solutionMergeOutputSchema = z.object({
+  candidate: solutionCandidateSchema,
+});
+
+export type SolutionMergeOutput = z.infer<typeof solutionMergeOutputSchema>;
