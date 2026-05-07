@@ -1,11 +1,15 @@
 import Link from "next/link";
-import { Brain, Map, Crosshair, ClipboardList } from "lucide-react";
+import { Brain, Map, Crosshair, ClipboardList, Settings } from "lucide-react";
 
 const nav = [
   { href: "/dashboard", label: "대시보드", short: "홈", icon: Map },
   { href: "/self-map", label: "Self Map", short: "Self", icon: Brain },
   { href: "/problems", label: "Problem Universe", short: "문제", icon: Crosshair },
   { href: "/validation", label: "Validating", short: "검증", icon: ClipboardList },
+];
+
+const settingsNav = [
+  { href: "/settings/reality-check", label: "패널 모델", icon: Settings },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -27,6 +31,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               {label}
             </Link>
           ))}
+          <div className="pt-3 mt-3 border-t border-border space-y-1">
+            {settingsNav.map(({ href, label, icon: Icon }) => (
+              <Link
+                key={href}
+                href={href}
+                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-xs text-subtle hover:bg-wash hover:text-secondary transition-colors"
+              >
+                <Icon size={14} />
+                {label}
+              </Link>
+            ))}
+          </div>
         </nav>
         <div className="px-4 py-4 border-t border-border">
           <p className="text-xs text-subtle">Powered by Claude</p>

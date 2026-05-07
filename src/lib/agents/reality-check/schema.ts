@@ -26,10 +26,16 @@ export const coldInvestorOutputSchema = z.object({
 });
 export type ColdInvestorOutput = z.infer<typeof coldInvestorOutputSchema>;
 
+// Array slots accept missing/empty: Anthropic tool use does NOT enforce
+// `required` server-side, and we observed the model deterministically
+// omitting nested-object arrays (`concerns`) on certain inputs (2026-05-07).
+// Rather than 502 the entire RC over a single missing slot, we tolerate
+// empties at the schema level and surface "no items" gracefully in the UI.
+// Eval scripts and feedback loop still measure when this happens — see
+// scripts/eval-reality-check.ts (drift counts) and the warning logs in run.ts.
+
 export const honestFriendOutputSchema = z.object({
   strength: z.string().min(1),
-  // Prompt asks for exactly 2 concerns; allow 1-3 so a near-miss output
-  // (model returns 1 strong concern, or splits into 3) doesn't fail zod.
   concerns: z
     .array(
       z.object({
@@ -37,22 +43,21 @@ export const honestFriendOutputSchema = z.object({
         mitigation: z.string().min(1),
       }),
     )
-    .min(1)
-    .max(3),
+    .max(3)
+    .optional()
+    .default([]),
 });
 export type HonestFriendOutput = z.infer<typeof honestFriendOutputSchema>;
 
 export const socraticQOutputSchema = z.object({
-  unverifiedAssumptions: z.array(z.string().min(1)).min(1).max(5),
-  // Prompt asks for exactly 3 questions; allow 2-4 so model variance
-  // doesn't trip zod and lose otherwise valid output.
-  questions: z.array(z.string().min(1)).min(2).max(4),
+  unverifiedAssumptions: z.array(z.string().min(1)).max(5).optional().default([]),
+  questions: z.array(z.string().min(1)).max(4).optional().default([]),
 });
 export type SocraticQOutput = z.infer<typeof socraticQOutputSchema>;
 
 export const moderatorOutputSchema = z.object({
-  remainingTensions: z.array(z.string().min(1)).min(1).max(3),
-  topNextActions: z.array(z.string().min(1)).min(1).max(3),
+  remainingTensions: z.array(z.string().min(1)).max(3).optional().default([]),
+  topNextActions: z.array(z.string().min(1)).max(3).optional().default([]),
 });
 export type ModeratorOutput = z.infer<typeof moderatorOutputSchema>;
 

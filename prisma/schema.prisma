@@ -130,24 +130,18 @@ model RealityCheck {
   createdAt            DateTime @default(now())
 
   solutionHypothesis SolutionHypothesis @relation(fields: [solutionHypothesisId], references: [id], onDelete: Cascade)
-  feedback           RealityCheckFeedback[]
 }
 
-// Per-slot feedback (thumbs / star + optional comment) on a RealityCheck.
-// Used to measure actual usefulness of each persona / moderator output and
-// to feed the B-stage (vendor-diversification) trigger. Comment text stays
-// in the DB only — never sent to PostHog (CLAUDE.md §7).
-model RealityCheckFeedback {
-  id              String   @id @default(cuid())
-  realityCheckId  String
-  slot            String   // "investor" | "friend" | "socratic" | "moderator"
-  rating          Int      // personas: -1 (down) | +1 (up); moderator: 1..5 stars
-  comment         String?
-  createdAt       DateTime @default(now())
-
-  realityCheck    RealityCheck @relation(fields: [realityCheckId], references: [id], onDelete: Cascade)
-
-  @@index([realityCheckId, slot])
+// Per-persona vendor/model configuration for the Reality Check panel.
+// One row per persona (`investor` | `friend` | `socratic` | `moderator`).
+// Vendor is `anthropic` (native SDK) or `openrouter` (OpenAI-compatible
+// proxy for OpenAI / Google / Perplexity). Editable in /settings/reality-check.
+model RealityCheckPersonaConfig {
+  id        String   @id @default(cuid())
+  persona   String   @unique
+  vendor    String
+  model     String
+  updatedAt DateTime @updatedAt
 }
 
 // Solution-level 1-pager — drafted by OnePager Composer, edited by user.
