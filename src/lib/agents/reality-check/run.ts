@@ -59,32 +59,97 @@ const PERSONA_CONFIG = {
 
 type PersonaConfig = (typeof PERSONA_CONFIG)[keyof typeof PERSONA_CONFIG];
 
-// Same JSON extraction as validation-designer/run.ts: strip markdown fence,
-// parse, fallback to first {...} match. Models occasionally still wrap JSON
-// in fences despite system instructions, so the regex fallback is required.
-function extractJson(rawText: string): unknown {
-  const cleaned = rawText
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```$/, "")
-    .trim();
-  try {
-    return JSON.parse(cleaned);
-  } catch {
-    const match = cleaned.match(/\{[\s\S]*\}/);
-    if (!match) {
-      throw new Error(
-        `Reality Check: no JSON object in response. raw: ${rawText.slice(0, 500)}`,
-      );
-    }
-    return JSON.parse(match[0]);
-  }
-}
+// JSON Schemas mirror the zod shapes in schema.ts. Tool input is validated
+// by zod afterwards as defense in depth. Tool use eliminates the
+// JSON.parse-from-text class of failures (unescaped newlines inside string
+// values, smart quotes, trailing commas) that plagued the prior text mode.
+const COLD_INVESTOR_TOOL_SCHEMA = {
+  type: "object" as const,
+  properties: {
+    topRisk: { type: "string" as const, description: "가장 치명적인 약점 1개 (1-2문장)" },
+    evidenceGap: { type: "string" as const, description: "더 강한 증거가 필요한 지점" },
+    citedSource: {
+      type: "string" as const,
+      enum: ["existence", "severity", "fit", "willingness", "onepager"],
+      description: "비판 근거가 되는 가설 axis 또는 1-pager",
+    },
+    nextAction: { type: "string" as const, description: "약점을 깰 검증 액션 또는 반증 질문 1개" },
+  },
+  required: ["topRisk", "evidenceGap", "citedSource", "nextAction"],
+};
 
-async function callPersonaWithRetry<T>(
+const HONEST_FRIEND_TOOL_SCHEMA = {
+  type: "object" as const,
+  properties: {
+    strength: { type: "string" as const, description: "구체적 강점 1개" },
+    concerns: {
+      type: "array" as const,
+      minItems: 1,
+      maxItems: 3,
+      description: "걱정되는 점 1-3개 (각 mitigation 포함)",
+      items: {
+        type: "object" as const,
+        properties: {
+          point: { type: "string" as const, description: "걱정되는 점 한 문단" },
+          mitigation: { type: "string" as const, description: "어떻게 확인·완화할지 한 줄" },
+        },
+        required: ["point", "mitigation"],
+      },
+    },
+  },
+  required: ["strength", "concerns"],
+};
+
+const SOCRATIC_Q_TOOL_SCHEMA = {
+  type: "object" as const,
+  properties: {
+    unverifiedAssumptions: {
+      type: "array" as const,
+      minItems: 1,
+      maxItems: 5,
+      description: "검증되지 않은 가정 1-5개 (짧은 명사구)",
+      items: { type: "string" as const },
+    },
+    questions: {
+      type: "array" as const,
+      minItems: 2,
+      maxItems: 4,
+      description: "가정을 확인하는 날카로운 질문 (모두 ?로 끝나야 함)",
+      items: { type: "string" as const },
+    },
+  },
+  required: ["unverifiedAssumptions", "questions"],
+};
+
+const MODERATOR_TOOL_SCHEMA = {
+  type: "object" as const,
+  properties: {
+    remainingTensions: {
+      type: "array" as const,
+      minItems: 1,
+      maxItems: 3,
+      description: "세 페르소나 사이에 남아있는 진짜 긴장 1-3개",
+      items: { type: "string" as const },
+    },
+    topNextActions: {
+      type: "array" as const,
+      minItems: 1,
+      maxItems: 3,
+      description: "다음 액션 1-3개 (구체적 검증·결정·대화)",
+      items: { type: "string" as const },
+    },
+  },
+  required: ["remainingTensions", "topNextActions"],
+};
+
+async function callPersona<T>(
   personaName: string,
   cfg: PersonaConfig,
   userMessage: string,
-  schema: z.ZodSchema<T>,
+  toolName: string,
+  toolDescription: string,
+  toolSchema: object,
+  zodSchema: z.ZodSchema<T>,
 ): Promise<T> {
   const attempt = async (model: string): Promise<T> => {
     const response = await client.messages.create({
@@ -92,26 +157,31 @@ async function callPersonaWithRetry<T>(
       max_tokens: cfg.max_tokens,
       temperature: cfg.temperature,
       system: cfg.system,
+      tools: [
+        {
+          name: toolName,
+          description: toolDescription,
+          input_schema: toolSchema as Anthropic.Messages.Tool["input_schema"],
+        },
+      ],
+      tool_choice: { type: "tool", name: toolName },
       messages: [{ role: "user", content: userMessage }],
     });
-    const rawText = response.content[0]?.type === "text" ? response.content[0].text : "{}";
-    let parsed: unknown;
-    try {
-      parsed = extractJson(rawText);
-    } catch (parseErr) {
-      console.error(
-        `[reality-check] ${personaName} (${model}) JSON.parse failed. raw[0..600]:`,
-        rawText.slice(0, 600),
+
+    const toolUse = response.content.find((b) => b.type === "tool_use");
+    if (!toolUse || toolUse.type !== "tool_use") {
+      throw new Error(
+        `${personaName}: model returned no tool_use block (stop_reason=${response.stop_reason})`,
       );
-      throw parseErr;
     }
-    const result = schema.safeParse(parsed);
+
+    const result = zodSchema.safeParse(toolUse.input);
     if (!result.success) {
       console.error(
-        `[reality-check] ${personaName} (${model}) zod failed. issues:`,
+        `[reality-check] ${personaName} (${model}) zod failed on tool input. issues:`,
         JSON.stringify(result.error.issues),
-        "raw[0..600]:",
-        rawText.slice(0, 600),
+        "input:",
+        JSON.stringify(toolUse.input).slice(0, 600),
       );
       throw result.error;
     }
@@ -125,10 +195,9 @@ async function callPersonaWithRetry<T>(
       `[reality-check] ${personaName} attempt 1 failed (${cfg.model}):`,
       firstErr instanceof Error ? firstErr.message : String(firstErr),
     );
-    // Retry on sonnet — opus may be unavailable on the current API tier, and
-    // same-input retry on the same model rarely clears a deterministic
-    // JSON-shape failure. Sonnet covers both axes (transient API +
-    // tier availability) and is also the persona default.
+    // Sonnet fallback covers (a) opus tier-unavailability and (b) transient
+    // API errors. Same-input retry on the same model rarely clears a
+    // deterministic failure.
     try {
       return await attempt("claude-sonnet-4-6");
     } catch (secondErr) {
@@ -160,36 +229,48 @@ export async function runRealityCheck(input: {
   const moderatorCtx = buildModeratorContext(input);
 
   const [coldInvestor, honestFriend, socraticQ] = (await Promise.all([
-    callPersonaWithRetry(
+    callPersona(
       "coldInvestor",
       PERSONA_CONFIG.coldInvestor,
       investorCtx,
+      "submit_critique",
+      "냉정한 투자자 관점의 critique를 제출합니다.",
+      COLD_INVESTOR_TOOL_SCHEMA,
       coldInvestorOutputSchema,
     ),
-    callPersonaWithRetry(
+    callPersona(
       "honestFriend",
       PERSONA_CONFIG.honestFriend,
       friendCtx,
+      "submit_feedback",
+      "솔직한 친구의 평가를 제출합니다.",
+      HONEST_FRIEND_TOOL_SCHEMA,
       honestFriendOutputSchema,
     ),
-    callPersonaWithRetry(
+    callPersona(
       "socraticQ",
       PERSONA_CONFIG.socraticQ,
       socraticCtx,
+      "submit_questions",
+      "검증되지 않은 가정과 그것을 확인할 질문을 제출합니다.",
+      SOCRATIC_Q_TOOL_SCHEMA,
       socraticQOutputSchema,
     ),
   ])) as [ColdInvestorOutput, HonestFriendOutput, SocraticQOutput];
 
-  // Moderator runs after, with full visibility on persona JSON outputs.
+  // Moderator runs after, with full visibility on persona structured outputs.
   const moderatorMessage = buildModeratorMessage(moderatorCtx, {
     coldInvestor,
     honestFriend,
     socraticQ,
   });
-  const moderatorSummary: ModeratorOutput = await callPersonaWithRetry(
+  const moderatorSummary: ModeratorOutput = await callPersona(
     "moderator",
     PERSONA_CONFIG.moderator,
     moderatorMessage,
+    "submit_moderation",
+    "세 페르소나의 의견을 종합한 중재자 결론을 제출합니다.",
+    MODERATOR_TOOL_SCHEMA,
     moderatorOutputSchema,
   );
 
