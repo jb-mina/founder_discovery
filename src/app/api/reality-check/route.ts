@@ -35,6 +35,7 @@ export async function POST(req: NextRequest) {
       onePager: solution.onePager,
     });
   } catch (e) {
+    console.error("[reality-check] runRealityCheck failed:", e);
     return NextResponse.json(
       { error: "Reality Check failed", message: e instanceof Error ? e.message : String(e) },
       { status: 502 },

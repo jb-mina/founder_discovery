@@ -86,9 +86,9 @@ async function callPersonaWithRetry<T>(
   userMessage: string,
   schema: z.ZodSchema<T>,
 ): Promise<T> {
-  const attempt = async (): Promise<T> => {
+  const attempt = async (model: string): Promise<T> => {
     const response = await client.messages.create({
-      model: cfg.model,
+      model,
       max_tokens: cfg.max_tokens,
       temperature: cfg.temperature,
       system: cfg.system,
@@ -100,15 +100,24 @@ async function callPersonaWithRetry<T>(
   };
 
   try {
-    return await attempt();
+    return await attempt(cfg.model);
   } catch (firstErr) {
-    // One retry on parse/zod failure with the same input — temperature jitter
-    // alone often clears transient JSON glitches. If the second attempt still
-    // fails, surface the error so the route returns 502 (no marker fallback).
+    console.error(
+      `[reality-check] ${personaName} attempt 1 failed (${cfg.model}):`,
+      firstErr instanceof Error ? firstErr.message : String(firstErr),
+    );
+    // Retry on sonnet — opus may be unavailable on the current API tier, and
+    // same-input retry on the same model rarely clears a deterministic
+    // JSON-shape failure. Sonnet covers both axes (transient API +
+    // tier availability) and is also the persona default.
     try {
-      return await attempt();
+      return await attempt("claude-sonnet-4-6");
     } catch (secondErr) {
       const msg = secondErr instanceof Error ? secondErr.message : String(secondErr);
+      console.error(
+        `[reality-check] ${personaName} attempt 2 failed (claude-sonnet-4-6 fallback):`,
+        msg,
+      );
       throw new Error(
         `Reality Check ${personaName} failed twice. last error: ${msg}. first error: ${
           firstErr instanceof Error ? firstErr.message : String(firstErr)

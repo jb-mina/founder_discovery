@@ -28,6 +28,8 @@ export type ColdInvestorOutput = z.infer<typeof coldInvestorOutputSchema>;
 
 export const honestFriendOutputSchema = z.object({
   strength: z.string().min(1),
+  // Prompt asks for exactly 2 concerns; allow 1-3 so a near-miss output
+  // (model returns 1 strong concern, or splits into 3) doesn't fail zod.
   concerns: z
     .array(
       z.object({
@@ -35,19 +37,22 @@ export const honestFriendOutputSchema = z.object({
         mitigation: z.string().min(1),
       }),
     )
-    .length(2),
+    .min(1)
+    .max(3),
 });
 export type HonestFriendOutput = z.infer<typeof honestFriendOutputSchema>;
 
 export const socraticQOutputSchema = z.object({
-  unverifiedAssumptions: z.array(z.string().min(1)).min(2).max(4),
-  questions: z.array(z.string().min(1)).length(3),
+  unverifiedAssumptions: z.array(z.string().min(1)).min(1).max(5),
+  // Prompt asks for exactly 3 questions; allow 2-4 so model variance
+  // doesn't trip zod and lose otherwise valid output.
+  questions: z.array(z.string().min(1)).min(2).max(4),
 });
 export type SocraticQOutput = z.infer<typeof socraticQOutputSchema>;
 
 export const moderatorOutputSchema = z.object({
-  remainingTensions: z.array(z.string().min(1)).min(1).max(2),
-  topNextActions: z.array(z.string().min(1)).min(1).max(2),
+  remainingTensions: z.array(z.string().min(1)).min(1).max(3),
+  topNextActions: z.array(z.string().min(1)).min(1).max(3),
 });
 export type ModeratorOutput = z.infer<typeof moderatorOutputSchema>;
 
