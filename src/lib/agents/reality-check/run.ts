@@ -60,20 +60,30 @@ const PERSONA_CONFIG = {
 type PersonaConfig = (typeof PERSONA_CONFIG)[keyof typeof PERSONA_CONFIG];
 
 // JSON Schemas mirror the zod shapes in schema.ts. Tool input is validated
-// by zod afterwards as defense in depth. Tool use eliminates the
-// JSON.parse-from-text class of failures (unescaped newlines inside string
-// values, smart quotes, trailing commas) that plagued the prior text mode.
+// by zod afterwards as defense in depth. Anthropic tool use does NOT enforce
+// `required` server-side — model self-compliance only — so descriptions
+// emphasize required-ness explicitly to reduce field omissions (observed:
+// honestFriend dropped `concerns` on 2026-05-07).
 const COLD_INVESTOR_TOOL_SCHEMA = {
   type: "object" as const,
   properties: {
-    topRisk: { type: "string" as const, description: "가장 치명적인 약점 1개 (1-2문장)" },
-    evidenceGap: { type: "string" as const, description: "더 강한 증거가 필요한 지점" },
+    topRisk: {
+      type: "string" as const,
+      description: "필수. 가장 치명적인 약점 1개 (1-2문장).",
+    },
+    evidenceGap: {
+      type: "string" as const,
+      description: "필수. 더 강한 증거가 필요한 지점 한 문단.",
+    },
     citedSource: {
       type: "string" as const,
       enum: ["existence", "severity", "fit", "willingness", "onepager"],
-      description: "비판 근거가 되는 가설 axis 또는 1-pager",
+      description: "필수. 비판 근거가 되는 가설 axis 또는 1-pager. enum 중 정확히 하나.",
     },
-    nextAction: { type: "string" as const, description: "약점을 깰 검증 액션 또는 반증 질문 1개" },
+    nextAction: {
+      type: "string" as const,
+      description: "필수. 약점을 깰 검증 액션 또는 반증 질문 1개.",
+    },
   },
   required: ["topRisk", "evidenceGap", "citedSource", "nextAction"],
 };
@@ -81,17 +91,27 @@ const COLD_INVESTOR_TOOL_SCHEMA = {
 const HONEST_FRIEND_TOOL_SCHEMA = {
   type: "object" as const,
   properties: {
-    strength: { type: "string" as const, description: "구체적 강점 1개" },
+    strength: {
+      type: "string" as const,
+      description: "필수. 구체적 강점 1개. 의례적 칭찬 금지.",
+    },
     concerns: {
       type: "array" as const,
       minItems: 1,
       maxItems: 3,
-      description: "걱정되는 점 1-3개 (각 mitigation 포함)",
+      description:
+        "필수. 걱정되는 점 1-3개. 빈 배열 금지. 각 항목은 {point, mitigation} 객체.",
       items: {
         type: "object" as const,
         properties: {
-          point: { type: "string" as const, description: "걱정되는 점 한 문단" },
-          mitigation: { type: "string" as const, description: "어떻게 확인·완화할지 한 줄" },
+          point: {
+            type: "string" as const,
+            description: "필수. 걱정되는 점 한 문단.",
+          },
+          mitigation: {
+            type: "string" as const,
+            description: "필수. 어떻게 확인·완화할지 한 줄.",
+          },
         },
         required: ["point", "mitigation"],
       },
@@ -107,14 +127,14 @@ const SOCRATIC_Q_TOOL_SCHEMA = {
       type: "array" as const,
       minItems: 1,
       maxItems: 5,
-      description: "검증되지 않은 가정 1-5개 (짧은 명사구)",
+      description: "필수. 검증되지 않은 가정 1-5개 (짧은 명사구). 빈 배열 금지.",
       items: { type: "string" as const },
     },
     questions: {
       type: "array" as const,
       minItems: 2,
       maxItems: 4,
-      description: "가정을 확인하는 날카로운 질문 (모두 ?로 끝나야 함)",
+      description: "필수. 가정을 확인하는 날카로운 질문 2-4개. 모든 항목은 ?로 끝나야 함.",
       items: { type: "string" as const },
     },
   },
@@ -128,14 +148,14 @@ const MODERATOR_TOOL_SCHEMA = {
       type: "array" as const,
       minItems: 1,
       maxItems: 3,
-      description: "세 페르소나 사이에 남아있는 진짜 긴장 1-3개",
+      description: "필수. 세 페르소나 사이에 남아있는 진짜 긴장 1-3개. 빈 배열 금지.",
       items: { type: "string" as const },
     },
     topNextActions: {
       type: "array" as const,
       minItems: 1,
       maxItems: 3,
-      description: "다음 액션 1-3개 (구체적 검증·결정·대화)",
+      description: "필수. 다음 액션 1-3개 (구체적 검증·결정·대화). 빈 배열 금지.",
       items: { type: "string" as const },
     },
   },
@@ -234,7 +254,7 @@ export async function runRealityCheck(input: {
       PERSONA_CONFIG.coldInvestor,
       investorCtx,
       "submit_critique",
-      "냉정한 투자자 관점의 critique를 제출합니다.",
+      "냉정한 투자자 critique 제출. topRisk, evidenceGap, citedSource, nextAction 4개 필드를 모두 채워야 합니다.",
       COLD_INVESTOR_TOOL_SCHEMA,
       coldInvestorOutputSchema,
     ),
@@ -243,7 +263,7 @@ export async function runRealityCheck(input: {
       PERSONA_CONFIG.honestFriend,
       friendCtx,
       "submit_feedback",
-      "솔직한 친구의 평가를 제출합니다.",
+      "솔직한 친구 평가 제출. strength와 concerns 두 필드를 모두 채워야 합니다. concerns는 최소 1개의 {point, mitigation} 객체를 포함하는 배열입니다 (빈 배열 금지).",
       HONEST_FRIEND_TOOL_SCHEMA,
       honestFriendOutputSchema,
     ),
@@ -252,7 +272,7 @@ export async function runRealityCheck(input: {
       PERSONA_CONFIG.socraticQ,
       socraticCtx,
       "submit_questions",
-      "검증되지 않은 가정과 그것을 확인할 질문을 제출합니다.",
+      "소크라테스 질문 제출. unverifiedAssumptions와 questions 두 배열 필드를 모두 채워야 합니다 (빈 배열 금지).",
       SOCRATIC_Q_TOOL_SCHEMA,
       socraticQOutputSchema,
     ),
@@ -269,7 +289,7 @@ export async function runRealityCheck(input: {
     PERSONA_CONFIG.moderator,
     moderatorMessage,
     "submit_moderation",
-    "세 페르소나의 의견을 종합한 중재자 결론을 제출합니다.",
+    "중재자 종합 제출. remainingTensions와 topNextActions 두 배열 필드를 모두 채워야 합니다 (빈 배열 금지).",
     MODERATOR_TOOL_SCHEMA,
     moderatorOutputSchema,
   );
