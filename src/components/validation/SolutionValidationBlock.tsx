@@ -22,6 +22,16 @@ import {
   type HypothesisStatus,
   type SolutionStatus,
 } from "@/lib/validation-labels";
+import {
+  coldInvestorOutputSchema,
+  honestFriendOutputSchema,
+  socraticQOutputSchema,
+  moderatorOutputSchema,
+  type ColdInvestorOutput,
+  type HonestFriendOutput,
+  type SocraticQOutput,
+  type ModeratorOutput,
+} from "@/lib/agents/reality-check/schema";
 
 // Hypothesis row enriched with updatedAt so we can pick the most-recently-
 // edited tool as the default tab. Optional because the field flows through
@@ -291,6 +301,25 @@ export function SolutionValidationBlock({
   );
 }
 
+// Slots are JSON-stringified server-side (post-2026-05-07). Older rows still
+// hold free-text — we try-parse and fall back to raw markdown rendering so
+// nothing breaks on legacy data. Once all rows are migrated, the fallback is
+// dead code that can be deleted.
+function tryParseSlot<T>(raw: string, schema: { safeParse: (v: unknown) => { success: boolean; data?: T } }):
+  | { kind: "structured"; data: T }
+  | { kind: "legacy"; raw: string } {
+  try {
+    const parsed = JSON.parse(raw);
+    const result = schema.safeParse(parsed);
+    if (result.success && result.data !== undefined) {
+      return { kind: "structured", data: result.data };
+    }
+  } catch {
+    // fall through
+  }
+  return { kind: "legacy", raw };
+}
+
 function RealityCheckSection({
   solution,
   onChanged,
@@ -344,44 +373,217 @@ function RealityCheckSection({
       ) : !rc ? (
         <p className="text-xs text-subtle">아직 실행된 패널 검토가 없습니다.</p>
       ) : (
-        <div className="space-y-3">
-          {/* Moderator first — always visible */}
-          <div className="bg-violet-50 border border-violet-200 rounded-lg p-3">
-            <div className="flex items-center gap-1 mb-1 text-violet-600">
-              <Scale size={12} />
-              <p className="text-xs font-medium">중재자 종합</p>
-            </div>
-            <Markdown content={rc.moderatorSummary} className="text-body" />
-          </div>
+        <RealityCheckResults
+          rc={rc}
+          showPersonas={showPersonas}
+          onTogglePersonas={() => setShowPersonas((v) => !v)}
+        />
+      )}
+    </div>
+  );
+}
 
-          {/* Personas — toggleable */}
-          <button
-            onClick={() => setShowPersonas((v) => !v)}
-            className="flex items-center gap-1 text-xs text-tertiary hover:text-secondary"
-          >
-            {showPersonas ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-            페르소나 3개 의견 {showPersonas ? "접기" : "펼치기"}
-          </button>
+function RealityCheckResults({
+  rc,
+  showPersonas,
+  onTogglePersonas,
+}: {
+  rc: NonNullable<SolutionBlockData["realityCheck"]>;
+  showPersonas: boolean;
+  onTogglePersonas: () => void;
+}) {
+  const moderator = tryParseSlot<ModeratorOutput>(rc.moderatorSummary, moderatorOutputSchema);
+  const investor = tryParseSlot<ColdInvestorOutput>(rc.coldInvestor, coldInvestorOutputSchema);
+  const friend = tryParseSlot<HonestFriendOutput>(rc.honestFriend, honestFriendOutputSchema);
+  const socratic = tryParseSlot<SocraticQOutput>(rc.socraticQ, socraticQOutputSchema);
 
-          {showPersonas && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {[
-                { icon: Zap, label: "냉정한 투자자", content: rc.coldInvestor, color: "text-red-600" },
-                { icon: AlertTriangle, label: "솔직한 친구", content: rc.honestFriend, color: "text-amber-600" },
-                { icon: HelpCircle, label: "소크라테스", content: rc.socraticQ, color: "text-blue-600" },
-              ].map(({ icon: Icon, label, content, color }) => (
-                <div key={label} className="bg-canvas border border-border rounded-lg p-3">
-                  <div className={`flex items-center gap-1 mb-2 ${color}`}>
-                    <Icon size={12} />
-                    <p className="text-xs font-medium">{label}</p>
-                  </div>
-                  <Markdown content={content} className="text-secondary" />
-                </div>
-              ))}
-            </div>
-          )}
+  return (
+    <div className="space-y-3">
+      {/* Moderator first — always visible */}
+      <div className="bg-violet-50 border border-violet-200 rounded-lg p-3">
+        <div className="flex items-center gap-1 mb-2 text-violet-600">
+          <Scale size={12} />
+          <p className="text-xs font-medium">중재자 종합</p>
+        </div>
+        {moderator.kind === "structured" ? (
+          <ModeratorView data={moderator.data} />
+        ) : (
+          <Markdown content={moderator.raw} className="text-body" />
+        )}
+      </div>
+
+      {/* Personas — toggleable */}
+      <button
+        onClick={onTogglePersonas}
+        className="flex items-center gap-1 text-xs text-tertiary hover:text-secondary"
+      >
+        {showPersonas ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+        페르소나 3개 의견 {showPersonas ? "접기" : "펼치기"}
+      </button>
+
+      {showPersonas && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <PersonaCard icon={Zap} label="냉정한 투자자" color="text-red-600">
+            {investor.kind === "structured" ? (
+              <InvestorView data={investor.data} />
+            ) : (
+              <Markdown content={investor.raw} className="text-secondary" />
+            )}
+          </PersonaCard>
+
+          <PersonaCard icon={AlertTriangle} label="솔직한 친구" color="text-amber-600">
+            {friend.kind === "structured" ? (
+              <FriendView data={friend.data} />
+            ) : (
+              <Markdown content={friend.raw} className="text-secondary" />
+            )}
+          </PersonaCard>
+
+          <PersonaCard icon={HelpCircle} label="소크라테스" color="text-blue-600">
+            {socratic.kind === "structured" ? (
+              <SocraticView data={socratic.data} />
+            ) : (
+              <Markdown content={socratic.raw} className="text-secondary" />
+            )}
+          </PersonaCard>
         </div>
       )}
     </div>
   );
 }
+
+function PersonaCard({
+  icon: Icon,
+  label,
+  color,
+  children,
+}: {
+  icon: typeof Zap;
+  label: string;
+  color: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="bg-canvas border border-border rounded-lg p-3">
+      <div className={`flex items-center gap-1 mb-2 ${color}`}>
+        <Icon size={12} />
+        <p className="text-xs font-medium">{label}</p>
+      </div>
+      <div className="text-secondary">{children}</div>
+    </div>
+  );
+}
+
+function ModeratorView({ data }: { data: ModeratorOutput }) {
+  return (
+    <div className="space-y-2 text-body text-sm">
+      <div>
+        <p className="text-xs font-medium text-violet-700 mb-1">남은 긴장</p>
+        {data.remainingTensions.length === 0 ? (
+          <p className="text-xs text-tertiary italic">중재자가 명시적 긴장을 짚지 않았습니다.</p>
+        ) : (
+          <ul className="list-disc pl-5 space-y-1">
+            {data.remainingTensions.map((t, i) => (
+              <li key={i}>{t}</li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <div>
+        <p className="text-xs font-medium text-violet-700 mb-1">다음 액션</p>
+        {data.topNextActions.length === 0 ? (
+          <p className="text-xs text-tertiary italic">중재자가 다음 액션을 제시하지 않았습니다.</p>
+        ) : (
+          <ul className="list-disc pl-5 space-y-1">
+            {data.topNextActions.map((a, i) => (
+              <li key={i}>{a}</li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function InvestorView({ data }: { data: ColdInvestorOutput }) {
+  return (
+    <div className="space-y-2 text-sm">
+      <div>
+        <p className="text-[11px] font-medium text-red-700 mb-0.5">치명적 약점</p>
+        <p>{data.topRisk}</p>
+      </div>
+      <div>
+        <p className="text-[11px] font-medium text-red-700 mb-0.5">필요한 증거</p>
+        <p>{data.evidenceGap}</p>
+      </div>
+      <div>
+        <p className="text-[11px] font-medium text-red-700 mb-0.5">다음 액션</p>
+        <p>{data.nextAction}</p>
+      </div>
+      <p className="text-[10px] text-tertiary">근거: {data.citedSource}</p>
+    </div>
+  );
+}
+
+function FriendView({ data }: { data: HonestFriendOutput }) {
+  return (
+    <div className="space-y-2 text-sm">
+      <div>
+        <p className="text-[11px] font-medium text-amber-700 mb-0.5">좋은 점</p>
+        <p>{data.strength}</p>
+      </div>
+      <div>
+        <p className="text-[11px] font-medium text-amber-700 mb-0.5">걱정되는 점</p>
+        {data.concerns.length === 0 ? (
+          <p className="text-[11px] text-tertiary italic">친구가 추가 걱정을 짚지 않았습니다.</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {data.concerns.map((c, i) => (
+              <li key={i}>
+                <p>{c.point}</p>
+                <p className="text-[11px] text-tertiary mt-0.5">→ {c.mitigation}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SocraticView({ data }: { data: SocraticQOutput }) {
+  return (
+    <div className="space-y-2 text-sm">
+      <div>
+        <p className="text-[11px] font-medium text-blue-700 mb-1">검증되지 않은 가정</p>
+        {data.unverifiedAssumptions.length === 0 ? (
+          <p className="text-[11px] text-tertiary italic">소크라테스가 가정을 식별하지 않았습니다.</p>
+        ) : (
+          <div className="flex flex-wrap gap-1">
+            {data.unverifiedAssumptions.map((a, i) => (
+              <span
+                key={i}
+                className="inline-block text-[11px] bg-blue-50 text-blue-700 border border-blue-200 rounded-full px-2 py-0.5"
+              >
+                {a}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+      <div>
+        <p className="text-[11px] font-medium text-blue-700 mb-0.5">질문</p>
+        {data.questions.length === 0 ? (
+          <p className="text-[11px] text-tertiary italic">소크라테스가 질문을 던지지 않았습니다.</p>
+        ) : (
+          <ol className="list-decimal pl-5 space-y-1">
+            {data.questions.map((q, i) => (
+              <li key={i}>{q}</li>
+            ))}
+          </ol>
+        )}
+      </div>
+    </div>
+  );
+}
+

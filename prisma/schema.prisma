@@ -132,6 +132,18 @@ model RealityCheck {
   solutionHypothesis SolutionHypothesis @relation(fields: [solutionHypothesisId], references: [id], onDelete: Cascade)
 }
 
+// Per-persona vendor/model configuration for the Reality Check panel.
+// One row per persona (`investor` | `friend` | `socratic` | `moderator`).
+// Vendor is `anthropic` (native SDK) or `openrouter` (OpenAI-compatible
+// proxy for OpenAI / Google / Perplexity). Editable in /settings/reality-check.
+model RealityCheckPersonaConfig {
+  id        String   @id @default(cuid())
+  persona   String   @unique
+  vendor    String
+  model     String
+  updatedAt DateTime @updatedAt
+}
+
 // Solution-level 1-pager — drafted by OnePager Composer, edited by user.
 // Bridges Desirability (4-axis) to Feasibility/Viability thinking. RC reads
 // this as richer context when present; RC FK stays on SolutionHypothesis.

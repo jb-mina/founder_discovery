@@ -1,14 +1,74 @@
 import { z } from "zod";
 
-// RC personas + moderator output. Free-text fields (not JSON-mode); the
-// schema exists for type safety on the route's response shape, not for
-// model output validation. The Anthropic call is plain text per persona.
+// RC moves to per-persona JSON slots so each role's output is structurally
+// scoped — investor can't drift into "응원" copy, friend can't drift into
+// "MOIC/시장 규모" claims, socratic can't slip a verdict in. Each persona
+// model call returns one of these schemas; the API route json-stringifies
+// each slot into the existing RealityCheck text columns (no schema rename).
+
+export const PERSONA_KEYS = ["coldInvestor", "honestFriend", "socraticQ", "moderator"] as const;
+export type PersonaKey = (typeof PERSONA_KEYS)[number];
+
+export const CITED_SOURCES = [
+  "existence",
+  "severity",
+  "fit",
+  "willingness",
+  "onepager",
+] as const;
+export type CitedSource = (typeof CITED_SOURCES)[number];
+
+export const coldInvestorOutputSchema = z.object({
+  topRisk: z.string().min(1),
+  evidenceGap: z.string().min(1),
+  citedSource: z.enum(CITED_SOURCES),
+  nextAction: z.string().min(1),
+});
+export type ColdInvestorOutput = z.infer<typeof coldInvestorOutputSchema>;
+
+// Array slots accept missing/empty: Anthropic tool use does NOT enforce
+// `required` server-side, and we observed the model deterministically
+// omitting nested-object arrays (`concerns`) on certain inputs (2026-05-07).
+// Rather than 502 the entire RC over a single missing slot, we tolerate
+// empties at the schema level and surface "no items" gracefully in the UI.
+// Eval scripts and feedback loop still measure when this happens — see
+// scripts/eval-reality-check.ts (drift counts) and the warning logs in run.ts.
+
+export const honestFriendOutputSchema = z.object({
+  strength: z.string().min(1),
+  concerns: z
+    .array(
+      z.object({
+        point: z.string().min(1),
+        mitigation: z.string().min(1),
+      }),
+    )
+    .max(3)
+    .optional()
+    .default([]),
+});
+export type HonestFriendOutput = z.infer<typeof honestFriendOutputSchema>;
+
+export const socraticQOutputSchema = z.object({
+  unverifiedAssumptions: z.array(z.string().min(1)).max(5).optional().default([]),
+  questions: z.array(z.string().min(1)).max(4).optional().default([]),
+});
+export type SocraticQOutput = z.infer<typeof socraticQOutputSchema>;
+
+export const moderatorOutputSchema = z.object({
+  remainingTensions: z.array(z.string().min(1)).max(3).optional().default([]),
+  topNextActions: z.array(z.string().min(1)).max(3).optional().default([]),
+});
+export type ModeratorOutput = z.infer<typeof moderatorOutputSchema>;
+
+// Wrapper returned by runRealityCheck(). Slots stay as parsed objects so the
+// API route can JSON.stringify each into its existing String column. The
+// inputContext field captures the moderator-level (full) context for audit.
 export const realityCheckOutputSchema = z.object({
-  coldInvestor: z.string(),
-  honestFriend: z.string(),
-  socraticQ: z.string(),
-  moderatorSummary: z.string(),
+  coldInvestor: coldInvestorOutputSchema,
+  honestFriend: honestFriendOutputSchema,
+  socraticQ: socraticQOutputSchema,
+  moderatorSummary: moderatorOutputSchema,
   inputContext: z.string(),
 });
-
 export type RealityCheckOutput = z.infer<typeof realityCheckOutputSchema>;
