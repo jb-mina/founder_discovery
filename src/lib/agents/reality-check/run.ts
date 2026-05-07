@@ -95,8 +95,27 @@ async function callPersonaWithRetry<T>(
       messages: [{ role: "user", content: userMessage }],
     });
     const rawText = response.content[0]?.type === "text" ? response.content[0].text : "{}";
-    const parsed = extractJson(rawText);
-    return schema.parse(parsed);
+    let parsed: unknown;
+    try {
+      parsed = extractJson(rawText);
+    } catch (parseErr) {
+      console.error(
+        `[reality-check] ${personaName} (${model}) JSON.parse failed. raw[0..600]:`,
+        rawText.slice(0, 600),
+      );
+      throw parseErr;
+    }
+    const result = schema.safeParse(parsed);
+    if (!result.success) {
+      console.error(
+        `[reality-check] ${personaName} (${model}) zod failed. issues:`,
+        JSON.stringify(result.error.issues),
+        "raw[0..600]:",
+        rawText.slice(0, 600),
+      );
+      throw result.error;
+    }
+    return result.data;
   };
 
   try {
