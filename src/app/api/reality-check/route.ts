@@ -41,13 +41,16 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Each persona slot is now a structured object; serialize into the
+  // existing String columns so the schema stays unchanged. UI parses on read
+  // (with a fallback to legacy free-text rows).
   const check = await prisma.realityCheck.create({
     data: {
       solutionHypothesisId,
-      coldInvestor: result.coldInvestor,
-      honestFriend: result.honestFriend,
-      socraticQ: result.socraticQ,
-      moderatorSummary: result.moderatorSummary,
+      coldInvestor: JSON.stringify(result.coldInvestor),
+      honestFriend: JSON.stringify(result.honestFriend),
+      socraticQ: JSON.stringify(result.socraticQ),
+      moderatorSummary: JSON.stringify(result.moderatorSummary),
       inputContext: result.inputContext,
     },
   });

@@ -72,6 +72,10 @@ type DashboardTrapKind = "trap_solution_drift" | "trap_empathy_vs_payment";
 
 type FocusProgressBucket = "0" | "1" | "2" | "3" | "4";
 
+type RealityCheckFeedbackSlot = "investor" | "friend" | "socratic" | "moderator";
+
+type RatingBucket = "positive" | "neutral" | "negative";
+
 export type AnalyticsEvent =
   | {
       event: "landing_section_viewed";
@@ -182,6 +186,14 @@ export type AnalyticsEvent =
         widget: DashboardWidget;
         target_route: string;
         trap_kind?: DashboardTrapKind;
+      };
+    }
+  | {
+      event: "reality_check_feedback_submitted";
+      props: {
+        slot: RealityCheckFeedbackSlot;
+        rating_bucket: RatingBucket;
+        has_comment: boolean;
       };
     };
 

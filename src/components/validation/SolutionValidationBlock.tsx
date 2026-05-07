@@ -10,6 +10,9 @@ import {
   Loader2,
   Scale,
   Sparkles,
+  Star,
+  ThumbsDown,
+  ThumbsUp,
   Zap,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +25,17 @@ import {
   type HypothesisStatus,
   type SolutionStatus,
 } from "@/lib/validation-labels";
+import {
+  coldInvestorOutputSchema,
+  honestFriendOutputSchema,
+  socraticQOutputSchema,
+  moderatorOutputSchema,
+  type ColdInvestorOutput,
+  type HonestFriendOutput,
+  type SocraticQOutput,
+  type ModeratorOutput,
+} from "@/lib/agents/reality-check/schema";
+import { track } from "@/lib/posthog/events";
 
 // Hypothesis row enriched with updatedAt so we can pick the most-recently-
 // edited tool as the default tab. Optional because the field flows through
@@ -291,6 +305,27 @@ export function SolutionValidationBlock({
   );
 }
 
+// Slots are JSON-stringified server-side (post-2026-05-07). Older rows still
+// hold free-text — we try-parse and fall back to raw markdown rendering so
+// nothing breaks on legacy data. Once all rows are migrated, the fallback is
+// dead code that can be deleted.
+function tryParseSlot<T>(raw: string, schema: { safeParse: (v: unknown) => { success: boolean; data?: T } }):
+  | { kind: "structured"; data: T }
+  | { kind: "legacy"; raw: string } {
+  try {
+    const parsed = JSON.parse(raw);
+    const result = schema.safeParse(parsed);
+    if (result.success && result.data !== undefined) {
+      return { kind: "structured", data: result.data };
+    }
+  } catch {
+    // fall through
+  }
+  return { kind: "legacy", raw };
+}
+
+type FeedbackSlot = "investor" | "friend" | "socratic" | "moderator";
+
 function RealityCheckSection({
   solution,
   onChanged,
@@ -344,42 +379,361 @@ function RealityCheckSection({
       ) : !rc ? (
         <p className="text-xs text-subtle">아직 실행된 패널 검토가 없습니다.</p>
       ) : (
-        <div className="space-y-3">
-          {/* Moderator first — always visible */}
-          <div className="bg-violet-50 border border-violet-200 rounded-lg p-3">
-            <div className="flex items-center gap-1 mb-1 text-violet-600">
-              <Scale size={12} />
-              <p className="text-xs font-medium">중재자 종합</p>
-            </div>
-            <Markdown content={rc.moderatorSummary} className="text-body" />
-          </div>
+        <RealityCheckResults
+          rc={rc}
+          showPersonas={showPersonas}
+          onTogglePersonas={() => setShowPersonas((v) => !v)}
+        />
+      )}
+    </div>
+  );
+}
 
-          {/* Personas — toggleable */}
-          <button
-            onClick={() => setShowPersonas((v) => !v)}
-            className="flex items-center gap-1 text-xs text-tertiary hover:text-secondary"
+function RealityCheckResults({
+  rc,
+  showPersonas,
+  onTogglePersonas,
+}: {
+  rc: NonNullable<SolutionBlockData["realityCheck"]>;
+  showPersonas: boolean;
+  onTogglePersonas: () => void;
+}) {
+  const moderator = tryParseSlot<ModeratorOutput>(rc.moderatorSummary, moderatorOutputSchema);
+  const investor = tryParseSlot<ColdInvestorOutput>(rc.coldInvestor, coldInvestorOutputSchema);
+  const friend = tryParseSlot<HonestFriendOutput>(rc.honestFriend, honestFriendOutputSchema);
+  const socratic = tryParseSlot<SocraticQOutput>(rc.socraticQ, socraticQOutputSchema);
+
+  return (
+    <div className="space-y-3">
+      {/* Moderator first — always visible */}
+      <div className="bg-violet-50 border border-violet-200 rounded-lg p-3">
+        <div className="flex items-center gap-1 mb-2 text-violet-600">
+          <Scale size={12} />
+          <p className="text-xs font-medium">중재자 종합</p>
+        </div>
+        {moderator.kind === "structured" ? (
+          <ModeratorView data={moderator.data} />
+        ) : (
+          <Markdown content={moderator.raw} className="text-body" />
+        )}
+        <FeedbackWidget rcId={rc.id} slot="moderator" mode="stars" />
+      </div>
+
+      {/* Personas — toggleable */}
+      <button
+        onClick={onTogglePersonas}
+        className="flex items-center gap-1 text-xs text-tertiary hover:text-secondary"
+      >
+        {showPersonas ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+        페르소나 3개 의견 {showPersonas ? "접기" : "펼치기"}
+      </button>
+
+      {showPersonas && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <PersonaCard
+            icon={Zap}
+            label="냉정한 투자자"
+            color="text-red-600"
+            slot="investor"
+            rcId={rc.id}
           >
-            {showPersonas ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-            페르소나 3개 의견 {showPersonas ? "접기" : "펼치기"}
-          </button>
+            {investor.kind === "structured" ? (
+              <InvestorView data={investor.data} />
+            ) : (
+              <Markdown content={investor.raw} className="text-secondary" />
+            )}
+          </PersonaCard>
 
-          {showPersonas && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {[
-                { icon: Zap, label: "냉정한 투자자", content: rc.coldInvestor, color: "text-red-600" },
-                { icon: AlertTriangle, label: "솔직한 친구", content: rc.honestFriend, color: "text-amber-600" },
-                { icon: HelpCircle, label: "소크라테스", content: rc.socraticQ, color: "text-blue-600" },
-              ].map(({ icon: Icon, label, content, color }) => (
-                <div key={label} className="bg-canvas border border-border rounded-lg p-3">
-                  <div className={`flex items-center gap-1 mb-2 ${color}`}>
-                    <Icon size={12} />
-                    <p className="text-xs font-medium">{label}</p>
-                  </div>
-                  <Markdown content={content} className="text-secondary" />
-                </div>
-              ))}
-            </div>
-          )}
+          <PersonaCard
+            icon={AlertTriangle}
+            label="솔직한 친구"
+            color="text-amber-600"
+            slot="friend"
+            rcId={rc.id}
+          >
+            {friend.kind === "structured" ? (
+              <FriendView data={friend.data} />
+            ) : (
+              <Markdown content={friend.raw} className="text-secondary" />
+            )}
+          </PersonaCard>
+
+          <PersonaCard
+            icon={HelpCircle}
+            label="소크라테스"
+            color="text-blue-600"
+            slot="socratic"
+            rcId={rc.id}
+          >
+            {socratic.kind === "structured" ? (
+              <SocraticView data={socratic.data} />
+            ) : (
+              <Markdown content={socratic.raw} className="text-secondary" />
+            )}
+          </PersonaCard>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PersonaCard({
+  icon: Icon,
+  label,
+  color,
+  slot,
+  rcId,
+  children,
+}: {
+  icon: typeof Zap;
+  label: string;
+  color: string;
+  slot: FeedbackSlot;
+  rcId: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="bg-canvas border border-border rounded-lg p-3">
+      <div className={`flex items-center gap-1 mb-2 ${color}`}>
+        <Icon size={12} />
+        <p className="text-xs font-medium">{label}</p>
+      </div>
+      <div className="text-secondary">{children}</div>
+      <FeedbackWidget rcId={rcId} slot={slot} mode="thumbs" />
+    </div>
+  );
+}
+
+function ModeratorView({ data }: { data: ModeratorOutput }) {
+  return (
+    <div className="space-y-2 text-body text-sm">
+      <div>
+        <p className="text-xs font-medium text-violet-700 mb-1">남은 긴장</p>
+        <ul className="list-disc pl-5 space-y-1">
+          {data.remainingTensions.map((t, i) => (
+            <li key={i}>{t}</li>
+          ))}
+        </ul>
+      </div>
+      <div>
+        <p className="text-xs font-medium text-violet-700 mb-1">다음 액션</p>
+        <ul className="list-disc pl-5 space-y-1">
+          {data.topNextActions.map((a, i) => (
+            <li key={i}>{a}</li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+function InvestorView({ data }: { data: ColdInvestorOutput }) {
+  return (
+    <div className="space-y-2 text-sm">
+      <div>
+        <p className="text-[11px] font-medium text-red-700 mb-0.5">치명적 약점</p>
+        <p>{data.topRisk}</p>
+      </div>
+      <div>
+        <p className="text-[11px] font-medium text-red-700 mb-0.5">필요한 증거</p>
+        <p>{data.evidenceGap}</p>
+      </div>
+      <div>
+        <p className="text-[11px] font-medium text-red-700 mb-0.5">다음 액션</p>
+        <p>{data.nextAction}</p>
+      </div>
+      <p className="text-[10px] text-tertiary">근거: {data.citedSource}</p>
+    </div>
+  );
+}
+
+function FriendView({ data }: { data: HonestFriendOutput }) {
+  return (
+    <div className="space-y-2 text-sm">
+      <div>
+        <p className="text-[11px] font-medium text-amber-700 mb-0.5">좋은 점</p>
+        <p>{data.strength}</p>
+      </div>
+      <div>
+        <p className="text-[11px] font-medium text-amber-700 mb-0.5">걱정되는 점</p>
+        <ul className="space-y-1.5">
+          {data.concerns.map((c, i) => (
+            <li key={i}>
+              <p>{c.point}</p>
+              <p className="text-[11px] text-tertiary mt-0.5">→ {c.mitigation}</p>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+function SocraticView({ data }: { data: SocraticQOutput }) {
+  return (
+    <div className="space-y-2 text-sm">
+      <div>
+        <p className="text-[11px] font-medium text-blue-700 mb-1">검증되지 않은 가정</p>
+        <div className="flex flex-wrap gap-1">
+          {data.unverifiedAssumptions.map((a, i) => (
+            <span
+              key={i}
+              className="inline-block text-[11px] bg-blue-50 text-blue-700 border border-blue-200 rounded-full px-2 py-0.5"
+            >
+              {a}
+            </span>
+          ))}
+        </div>
+      </div>
+      <div>
+        <p className="text-[11px] font-medium text-blue-700 mb-0.5">질문</p>
+        <ol className="list-decimal pl-5 space-y-1">
+          {data.questions.map((q, i) => (
+            <li key={i}>{q}</li>
+          ))}
+        </ol>
+      </div>
+    </div>
+  );
+}
+
+// Per-slot feedback widget: thumbs (-1/+1) for personas, 1..5 stars for the
+// moderator. Submitting is one-shot; comment input is optional and shown
+// only after a rating is set so the user isn't asked to write before
+// expressing direction. Free-text comment goes to DB only — never PostHog.
+function FeedbackWidget({
+  rcId,
+  slot,
+  mode,
+}: {
+  rcId: string;
+  slot: FeedbackSlot;
+  mode: "thumbs" | "stars";
+}) {
+  const [rating, setRating] = useState<number | null>(null);
+  const [comment, setComment] = useState("");
+  const [showComment, setShowComment] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
+  const [hover, setHover] = useState<number | null>(null);
+
+  async function submit(finalRating: number, finalComment: string) {
+    setSubmitting(true);
+    const res = await fetch(`/api/reality-check/${rcId}/feedback`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        slot,
+        rating: finalRating,
+        ...(finalComment.trim() ? { comment: finalComment.trim() } : {}),
+      }),
+    });
+    setSubmitting(false);
+    if (!res.ok) return;
+    const body = (await res.json()) as { bucket: "positive" | "neutral" | "negative" };
+    track({
+      event: "reality_check_feedback_submitted",
+      props: {
+        slot,
+        rating_bucket: body.bucket,
+        has_comment: finalComment.trim().length > 0,
+      },
+    });
+    setDone(true);
+  }
+
+  function pickRating(next: number) {
+    setRating(next);
+    setShowComment(true);
+    void submit(next, comment);
+  }
+
+  async function saveComment() {
+    if (rating === null || comment.trim().length === 0) {
+      setShowComment(false);
+      return;
+    }
+    await submit(rating, comment);
+    setShowComment(false);
+  }
+
+  if (done && !showComment) {
+    return <p className="mt-3 text-[10px] text-tertiary">피드백 감사합니다.</p>;
+  }
+
+  return (
+    <div className="mt-3 pt-2 border-t border-border/60">
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] text-tertiary">
+          {mode === "stars" ? "이 종합이 의사결정에 도움됐나요?" : "이 의견이 도움됐나요?"}
+        </span>
+        {mode === "thumbs" ? (
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => pickRating(1)}
+              disabled={submitting || done}
+              aria-label="도움됨"
+              className={`p-1 rounded hover:bg-wash disabled:opacity-40 ${
+                rating === 1 ? "text-green-600" : "text-tertiary"
+              }`}
+            >
+              <ThumbsUp size={12} />
+            </button>
+            <button
+              type="button"
+              onClick={() => pickRating(-1)}
+              disabled={submitting || done}
+              aria-label="안 도움됨"
+              className={`p-1 rounded hover:bg-wash disabled:opacity-40 ${
+                rating === -1 ? "text-red-600" : "text-tertiary"
+              }`}
+            >
+              <ThumbsDown size={12} />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-0.5" onMouseLeave={() => setHover(null)}>
+            {[1, 2, 3, 4, 5].map((n) => {
+              const filled = (hover ?? rating ?? 0) >= n;
+              return (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => pickRating(n)}
+                  onMouseEnter={() => setHover(n)}
+                  disabled={submitting || done}
+                  aria-label={`${n}점`}
+                  className="p-0.5 rounded disabled:opacity-40"
+                >
+                  <Star
+                    size={12}
+                    className={filled ? "text-amber-500 fill-amber-500" : "text-tertiary"}
+                  />
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+      {showComment && (
+        <div className="mt-2 flex items-start gap-2">
+          <textarea
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            placeholder="어떤 점이 도움됐어요/약했어요? (선택)"
+            rows={2}
+            maxLength={1000}
+            className="flex-1 text-[11px] rounded border border-border bg-canvas px-2 py-1 resize-none focus:outline-none focus:ring-1 focus:ring-violet-400"
+          />
+          <button
+            type="button"
+            onClick={() => void saveComment()}
+            disabled={submitting}
+            className="text-[10px] rounded border border-border bg-canvas hover:bg-wash px-2 py-1 text-tertiary disabled:opacity-40 shrink-0"
+          >
+            저장
+          </button>
         </div>
       )}
     </div>
